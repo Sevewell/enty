@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}保護されたページ - マルチプロバイダー OIDC アプリ{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-warning d-flex justify-content-between align-items-center">
+                <h2><i class="fas fa-lock"></i> 保護されたページ</h2>
+                {% if provider_info %}
+                    <span class="badge bg-{{ provider_info.color }} fs-6">
+                        {{ provider_info.name }}認証
+                    </span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>認証成功！</strong> このページは{{ provider_info.name if provider_info else user.provider|title }}で認証されたユーザーのみがアクセスできます。
+                </div>
+                
+                <p>こんにちは、<strong>{{ user.name }}</strong>さん！</p>
+                <p>このページはマルチプロバイダー認証が必要な機能の例として作成されました。</p>
+                
+                <h4>認証情報</h4>
+                <ul>
+                    <li><strong>認証プロバイダー:</strong> {{ provider_info.name if provider_info else user.provider|title }}</li>
+                    <li><strong>名前:</strong> {{ user.name }}</li>
+                    <li><strong>メールアドレス:</strong> {{ user.email or 'なし' }}</li>
+                    <li><strong>ユーザーID:</strong> {{ user.id }}</li>
+                </ul>
+                
+                <h4>マルチプロバイダー対応の利点</h4>
+                <ul>
+                    <li>ユーザーは好きなプロバイダーを選択できる</li>
+                    <li>企業ユーザーは会社のIDプロバイダー（Microsoft、Auth0など）を使用可能</li>
+                    <li>個人ユーザーはGoogle、GitHubなどの個人アカウントを使用可能</li>
+                    <li>プロバイダーに依存しない統一されたユーザー体験</li>
+                    <li>OIDC標準準拠でセキュリティも確保</li>
+                </ul>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">ホームに戻る</a>
+                    <a href="{{ url_for('profile') }}" class="btn btn-primary">プロフィール</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">ログアウト</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

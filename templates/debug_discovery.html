@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}OIDC Discovery Debug - Flask OIDC アプリ{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h2>OIDC Discovery エンドポイント情報</h2>
+                <small class="text-muted">URL: {{ discovery_url }}</small>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>説明:</strong> このページでは、requestsライブラリを使ってOIDC Discovery情報を直接取得しています。
+                    Authlibも内部的に同様の処理を行っています。
+                </div>
+                
+                <h4>重要なエンドポイント</h4>
+                <table class="table table-striped">
+                    <tr>
+                        <th>認証エンドポイント</th>
+                        <td><code>{{ discovery_data.authorization_endpoint }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>トークンエンドポイント</th>
+                        <td><code>{{ discovery_data.token_endpoint }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>UserInfoエンドポイント</th>
+                        <td><code>{{ discovery_data.userinfo_endpoint }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>JWKS URI</th>
+                        <td><code>{{ discovery_data.jwks_uri }}</code></td>
+                    </tr>
+                </table>
+
+                <h4>サポートされている認証方式</h4>
+                <ul>
+                    {% for method in discovery_data.token_endpoint_auth_methods_supported %}
+                        <li><code>{{ method }}</code></li>
+                    {% endfor %}
+                </ul>
+
+                <h4>サポートされているスコープ</h4>
+                <ul>
+                    {% for scope in discovery_data.scopes_supported %}
+                        <li><code>{{ scope }}</code></li>
+                    {% endfor %}
+                </ul>
+
+                <details class="mt-4">
+                    <summary><strong>完全なDiscovery情報（JSON）</strong></summary>
+                    <pre class="bg-light p-3 mt-2"><code>{{ discovery_data | tojson(indent=2) }}</code></pre>
+                </details>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">ホームに戻る</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

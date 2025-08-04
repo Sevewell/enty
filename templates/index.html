@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-8 mx-auto">
+        <div class="jumbotron">
+            <h1 class="display-4">Flask OIDC アプリケーション</h1>
+            <p class="lead">AuthlibとFlaskを使用したOpenID Connect認証と資産管理のデモアプリケーションです。</p>
+            <hr>
+            
+            {% if user %}
+                <p>こんにちは、{{ user.name }}さん！</p>
+                <div class="d-flex gap-3 justify-content-center">
+                    <a class="btn btn-primary btn-lg" href="{{ url_for('profile') }}" role="button">プロフィールを見る</a>
+                    <a class="btn btn-success btn-lg" href="{{ url_for('assets_index') }}" role="button">資産管理</a>
+                    <a class="btn btn-secondary btn-lg" href="{{ url_for('protected') }}" role="button">保護されたページ</a>
+                </div>
+            {% else %}
+                <p>ログインしてアプリケーションを利用してください。</p>
+                <a class="btn btn-primary btn-lg" href="{{ url_for('login') }}" role="button">OIDCプロバイダーでログイン</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <h3>機能</h3>
+        <div class="row">
+            <div class="col-6">
+                <ul class="list-group">
+                    <li class="list-group-item">
+                        <strong>OpenID Connect認証</strong> - 汎用OIDCプロバイダーでログイン
+                    </li>
+                    <li class="list-group-item">
+                        <strong>プロフィール表示</strong> - ログインしたユーザーの情報を表示
+                    </li>
+                    <li class="list-group-item">
+                        <strong>資産管理</strong> - 人員、デバイス、ソフトウェア、オフィス機器の管理
+                    </li>
+                </ul>
+            </div>
+            <div class="col-6">
+                <ul class="list-group">
+                    <li class="list-group-item">
+                        <strong>エンティティリレーション</strong> - 資産間の関係性を管理
+                    </li>
+                    <li class="list-group-item">
+                        <strong>セッション管理</strong> - ログイン状態の維持とログアウト機能
+                    </li>
+                    <li class="list-group-item">
+                        <strong>独立性</strong> - 外部フレームワークに依存しない軽量設計
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

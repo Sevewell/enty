@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}資産管理ダッシュボード{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">資産管理ダッシュボード</h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- 統計カード -->
+    <div class="col-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title">人員</h6>
+                        <h3 class="mb-0" id="staff-count">-</h3>
+                    </div>
+                    <div class="fs-1">👥</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title">デバイス</h6>
+                        <h3 class="mb-0" id="device-count">-</h3>
+                    </div>
+                    <div class="fs-1">💻</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title">ソフトウェア</h6>
+                        <h3 class="mb-0" id="software-count">-</h3>
+                    </div>
+                    <div class="fs-1">💿</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title">オフィス機器</h6>
+                        <h3 class="mb-0" id="office-count">-</h3>
+                    </div>
+                    <div class="fs-1">🖨️</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- クイックアクション -->
+    <div class="col-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">クイックアクション</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('entity_list') }}" class="btn btn-outline-primary">
+                        📋 全エンティティを表示
+                    </a>
+                    <a href="{{ url_for('entity_list', type=1) }}" class="btn btn-outline-primary">
+                        👥 人員一覧
+                    </a>
+                    <a href="{{ url_for('entity_list', type=2) }}" class="btn btn-outline-success">
+                        💻 デバイス一覧
+                    </a>
+                    <a href="{{ url_for('entity_list', type=3) }}" class="btn btn-outline-info">
+                        💿 ソフトウェア一覧
+                    </a>
+                    <a href="{{ url_for('entity_list', type=4) }}" class="btn btn-outline-warning">
+                        🖨️ オフィス機器一覧
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近の活動 -->
+    <div class="col-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">最近追加されたエンティティ</h5>
+            </div>
+            <div class="card-body">
+                <div id="recent-entities">
+                    <div class="text-muted text-center py-3">
+                        読み込み中...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ページ読み込み時にデータを取得
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+});
+
+function loadDashboardData() {
+    // 統計データの取得
+    fetch('/api/dashboard-stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('staff-count').textContent = data.staff || 0;
+            document.getElementById('device-count').textContent = data.devices || 0;
+            document.getElementById('software-count').textContent = data.software || 0;
+            document.getElementById('office-count').textContent = data.office || 0;
+        })
+        .catch(error => {
+            console.error('統計データの取得に失敗:', error);
+            // エラー時はデフォルト値を表示
+            document.getElementById('staff-count').textContent = '0';
+            document.getElementById('device-count').textContent = '0';
+            document.getElementById('software-count').textContent = '0';
+            document.getElementById('office-count').textContent = '0';
+        });
+    
+    // 最近のエンティティデータの取得
+    fetch('/api/recent-entities')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('recent-entities');
+            if (data.length === 0) {
+                container.innerHTML = '<div class="text-muted text-center py-3">最近追加されたエンティティはありません</div>';
+                return;
+            }
+            
+            const html = data.map(entity => `
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <div>
+                        <strong>${entity.title}</strong>
+                        <small class="text-muted d-block">${entity.type_name}</small>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">${entity.date_in}</small>
+                        <br>
+                        <a href="/assets/entity/${entity.identifier}" class="btn btn-sm btn-outline-primary">詳細</a>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('最近のエンティティデータの取得に失敗:', error);
+            document.getElementById('recent-entities').innerHTML = 
+                '<div class="text-danger text-center py-3">データの読み込みに失敗しました</div>';
+        });
+}
+</script>
+{% endblock %}

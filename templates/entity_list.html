@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{entity_meta.title}} - Aggre</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- サイドバー -->
+        <nav class="sidebar">
+            <h2>エンティティ定義</h2>
+            <ul class="nav-list" id="entity-nav">
+                <!-- JavaScript で動的に生成 -->
+            </ul>
+            
+            <div class="metadata-link">
+                <a href="/metadata">⚙️ メタデータ管理</a>
+            </div>
+        </nav>
+
+        <!-- メインコンテンツ -->
+        <main class="main-content">
+            <div class="header">
+                <h1>{{entity_meta.title}}管理</h1>
+            </div>
+
+            <div class="content-header">
+                <h2 class="content-title">{{entity_meta.title}}一覧</h2>
+                <p class="content-subtitle">{{entity_meta.title}}の登録・編集・削除を行います</p>
+            </div>
+
+            <!-- ツールバー -->
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <input type="text" class="filter-input" id="filter-input" placeholder="検索...">
+                    <label>
+                        <input type="checkbox" id="show-inactive"> 無効なレコードも表示
+                    </label>
+                </div>
+                <div class="toolbar-right">
+                    <button class="btn btn-success" onclick="openCreateModal()">+ 新規作成</button>
+                    <button class="btn btn-secondary" onclick="refreshData()">🔄 更新</button>
+                </div>
+            </div>
+
+            <!-- データテーブル -->
+            <div class="table-container">
+                <table class="table" id="data-table">
+                    <thead>
+                        <tr id="table-header">
+                            <!-- JavaScript で動的に生成 -->
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- JavaScript で動的に生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新規作成/編集モーダル -->
+    <div id="entityModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-title">新規{{entity_meta.title}}作成</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="entity-form">
+                <div class="form-group">
+                    <label class="form-label">タイトル</label>
+                    <input type="text" class="form-input" id="entity-title" required>
+                </div>
+                
+                <div id="attribute-fields">
+                    <!-- JavaScript で動的に生成 -->
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">開始日</label>
+                    <input type="date" class="form-input" id="date-in" required>
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+                <button class="btn btn-success" onclick="saveEntity()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 無効化モーダル -->
+    <div id="deactivateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">{{entity_meta.title}}の無効化</h3>
+                <span class="close" onclick="closeDeactivateModal()">&times;</span>
+            </div>
+            <p>このエンティティを無効化しますか？</p>
+            <div class="form-group">
+                <label class="form-label">終了日</label>
+                <input type="date" class="form-input" id="date-out" required>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeactivateModal()">キャンセル</button>
+                <button class="btn btn-danger" onclick="deactivateEntity()">無効化</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // データの初期化
+        const entityMeta = {{entity_meta}};
+        const attributeMetas = {{attribute_metas}};
+        const entityMetas = {{entity_metas}};
+        let entities = {{entities}};
+        let currentEditingId = null;
+        let currentDeactivatingId = null;
+
+        // サイドバーの初期化
+        function initializeSidebar() {
+            const navList = document.getElementById('entity-nav');
+            entityMetas.forEach(meta => {
+                const li = document.createElement('li');
+                li.className = 'nav-item';
+                const isActive = meta.identifier === entityMeta.identifier ? ' active' : '';
+                li.innerHTML = `<a href="/entity/${meta.identifier}" class="nav-link${isActive}">${meta.title}</a>`;
+                navList.appendChild(li);
+            });
+        }
+
+        // テーブルヘッダーの初期化
+        function initializeTableHeader() {
+            const header = document.getElementById('table-header');
+            header.innerHTML = '<th>ID</th><th>名前</th>';
+            
+            attributeMetas.forEach(attr => {
+                header.innerHTML += `<th>${attr.title}</th>`;
+            });
+            
+            header.innerHTML += '<th>開始日</th><th>終了日</th><th>ステータス</th><th>操作</th>';
+        }
+
+        // テーブルデータの表示
+        function renderTableData() {
+            const tbody = document.getElementById('table-body');
+            const showInactive = document.getElementById('show-inactive').checked;
+            const filterText = document.getElementById('filter-input').value.toLowerCase();
+            
+            const filteredEntities = entities.filter(entity => {
+                if (!showInactive && entity.status === '無効') return false;
+                if (filterText && !entity.entity_name.toLowerCase().includes(filterText)) return false;
+                return true;
+            });
+
+            tbody.innerHTML = '';
+            
+            if (filteredEntities.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="${5 + attributeMetas.length}" class="text-center">
+                            データがありません
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            filteredEntities.forEach(entity => {
+                const row = document.createElement('tr');
+                let html = `
+                    <td>${entity.entity_id}</td>
+                    <td>${entity.entity_name}</td>
+                `;
+                
+                attributeMetas.forEach(attr => {
+                    html += `<td>${entity[attr.title] || ''}</td>`;
+                });
+                
+                const statusClass = entity.status === '有効' ? 'status-active' : 'status-inactive';
+                html += `
+                    <td>${entity.date_in || ''}</td>
+                    <td>${entity.date_out || ''}</td>
+                    <td><span class="status ${statusClass}">${entity.status}</span></td>
+                    <td>
+                        <button class="btn btn-primary" onclick="editEntity(${entity.entity_id})">編集</button>
+                        ${entity.status === '有効' ? `<button class="btn btn-danger ml-10" onclick="openDeactivateModal(${entity.entity_id})">無効化</button>` : ''}
+                    </td>
+                `;
+                
+                row.innerHTML = html;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 属性フィールドの生成
+        function generateAttributeFields(entity = null) {
+            const container = document.getElementById('attribute-fields');
+            container.innerHTML = '';
+            
+            attributeMetas.forEach(attr => {
+                const value = entity ? (entity[attr.title] || '') : '';
+                const fieldType = attr.data_type === 'DATE' ? 'date' : 'text';
+                
+                container.innerHTML += `
+                    <div class="form-group">
+                        <label class="form-label">${attr.title}</label>
+                        <input type="${fieldType}" class="form-input" 
+                               id="attr-${attr.identifier}" 
+                               value="${value}"
+                               data-attr-id="${attr.identifier}">
+                    </div>
+                `;
+            });
+        }
+
+        // モーダル操作
+        function openCreateModal() {
+            currentEditingId = null;
+            document.getElementById('modal-title').textContent = `新規${entityMeta.title}作成`;
+            document.getElementById('entity-title').value = '';
+            document.getElementById('date-in').value = new Date().toISOString().split('T')[0];
+            generateAttributeFields();
+            document.getElementById('entityModal').style.display = 'block';
+        }
+
+        function editEntity(entityId) {
+            const entity = entities.find(e => e.entity_id === entityId);
+            if (!entity) return;
+            
+            currentEditingId = entityId;
+            document.getElementById('modal-title').textContent = `${entityMeta.title}編集`;
+            document.getElementById('entity-title').value = entity.entity_name;
+            document.getElementById('date-in').value = entity.date_in;
+            generateAttributeFields(entity);
+            document.getElementById('entityModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('entityModal').style.display = 'none';
+            currentEditingId = null;
+        }
+
+        function openDeactivateModal(entityId) {
+            currentDeactivatingId = entityId;
+            document.getElementById('date-out').value = new Date().toISOString().split('T')[0];
+            document.getElementById('deactivateModal').style.display = 'block';
+        }
+
+        function closeDeactivateModal() {
+            document.getElementById('deactivateModal').style.display = 'none';
+            currentDeactivatingId = null;
+        }
+
+        // データ操作
+        async function saveEntity() {
+            const title = document.getElementById('entity-title').value;
+            const dateIn = document.getElementById('date-in').value;
+            
+            const attributes = {};
+            attributeMetas.forEach(attr => {
+                const input = document.getElementById(`attr-${attr.identifier}`);
+                if (input.value) {
+                    attributes[attr.identifier] = input.value;
+                }
+            });
+
+            const data = {
+                title: title,
+                attributes: attributes
+            };
+
+            let url, method;
+            if (currentEditingId) {
+                url = '/api/entity/update';
+                data.entity_id = currentEditingId;
+                data.date_event = new Date().toISOString().split('T')[0];
+            } else {
+                url = '/api/entity/create';
+                data.meta_id = entityMeta.identifier;
+                data.date_in = dateIn;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    closeModal();
+                    refreshData();
+                } else {
+                    alert('保存に失敗しました');
+                }
+            } catch (error) {
+                alert('エラーが発生しました: ' + error.message);
+            }
+        }
+
+        async function deactivateEntity() {
+            const dateOut = document.getElementById('date-out').value;
+            
+            try {
+                const response = await fetch('/api/entity/deactivate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        entity_id: currentDeactivatingId,
+                        date_out: dateOut
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    closeDeactivateModal();
+                    refreshData();
+                } else {
+                    alert('無効化に失敗しました');
+                }
+            } catch (error) {
+                alert('エラーが発生しました: ' + error.message);
+            }
+        }
+
+        async function refreshData() {
+            try {
+                const response = await fetch(`/api/entities?meta_id=${entityMeta.identifier}`);
+                entities = await response.json();
+                renderTableData();
+            } catch (error) {
+                alert('データの更新に失敗しました: ' + error.message);
+            }
+        }
+
+        // イベントリスナー
+        document.getElementById('filter-input').addEventListener('input', renderTableData);
+        document.getElementById('show-inactive').addEventListener('change', renderTableData);
+
+        // モーダルの外側クリックで閉じる
+        window.onclick = function(event) {
+            const entityModal = document.getElementById('entityModal');
+            const deactivateModal = document.getElementById('deactivateModal');
+            if (event.target === entityModal) {
+                closeModal();
+            }
+            if (event.target === deactivateModal) {
+                closeDeactivateModal();
+            }
+        }
+
+        // 初期化
+        initializeSidebar();
+        initializeTableHeader();
+        renderTableData();
+    </script>
+</body>
+</html>

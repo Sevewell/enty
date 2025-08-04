@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}エンティティインスタンス一覧{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1>📦 エンティティインスタンス一覧</h1>
+                    <p class="text-muted mb-0">定義されたエンティティクラスから作成された具体的なインスタンスの一覧です。</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('create_entity_form') }}" class="btn btn-success">
+                        ➕ 新しいインスタンスを作成
+                    </a>
+                    <a href="{{ url_for('assets_index') }}" class="btn btn-secondary">
+                        ← クラス管理に戻る
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- フィルタとコントロール -->
+<div class="row mb-4">
+    <div class="col-6">
+    <div class="card">
+    <div class="card-body">
+    <h6 class="card-title">エンティティクラスでフィルタ</h6>
+    <div class="d-flex gap-2 mb-2">
+    <a href="{{ url_for('entity_list') }}" 
+    class="btn btn-sm {% if not current_type %}btn-primary{% else %}btn-outline-primary{% endif %}">
+    すべて
+    </a>
+    {% for entity_type in entity_types %}
+    <a href="{{ url_for('entity_list', type=entity_type.identifier) }}" 
+    class="btn btn-sm {% if current_type and (current_type|int) == entity_type.identifier %}btn-primary{% else %}btn-outline-primary{% endif %}">
+    {{ entity_type.title }}
+    </a>
+    {% endfor %}
+    </div>
+    {% if current_type %}
+    <div class="text-center">
+    <a href="{{ url_for('create_entity_form', type=current_type) }}" class="btn btn-sm btn-success">
+    ➕ このクラスのインスタンスを作成
+    </a>
+    </div>
+    {% endif %}
+    </div>
+    </div>
+    </div>
+    
+    <div class="col-6">
+    <div class="card">
+    <div class="card-body">
+    <h6 class="card-title">検索</h6>
+    <input type="text" class="form-control" id="search-input" 
+    placeholder="インスタンス名で検索...">
+    </div>
+    </div>
+    </div>
+</div>
+    
+    <!-- エンティティ一覧 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        {% if current_type %}
+                            {% for entity_type in entity_types %}
+                                {% if entity_type.identifier == (current_type|int if current_type else 0) %}
+                                    {{ entity_type.title }}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            全インスタンス
+                        {% endif %}
+                        ({{ entities|length }}件)
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if entities %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="entities-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>インスタンスID</th>
+                                    <th>インスタンス名</th>
+                                    <th>クラス</th>
+                                    <th>登録日</th>
+                                    <th>状態</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entity in entities %}
+                                <tr class="entity-row" data-name="{{ entity.title.lower() }}">
+                                    <td>
+                                        <code>{{ entity.identifier }}</code>
+                                    </td>
+                                    <td>
+                                        <strong>{{ entity.title }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ entity.type_name }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ entity.date_in }}</small>
+                                    </td>
+                                    <td>
+                                        {% if entity.date_out %}
+                                            <span class="badge bg-danger">無効</span>
+                                        {% else %}
+                                            <span class="badge bg-success">有効</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('entity_detail', entity_id=entity.identifier) }}" 
+                                               class="btn btn-outline-primary">
+                                                📝 詳細
+                                            </a>
+                                            <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" 
+                                                    data-bs-toggle="dropdown">
+                                                <span class="visually-hidden">オプション</span>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ url_for('entity_detail', entity_id=entity.identifier) }}">
+                                                        📄 詳細表示
+                                                    </a>
+                                                </li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <a class="dropdown-item text-warning" href="#">
+                                                        ✏️ 編集
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item text-danger" href="#">
+                                                        🗑️ 削除
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="text-muted">
+                            <div style="font-size: 3rem;">📋</div>
+                            <h5>インスタンスが見つかりません</h5>
+                            <p>条件に一致するインスタンスがありません。</p>
+                            <div class="mt-3">
+                                {% if current_type %}
+                                    <a href="{{ url_for('create_entity_form', type=current_type) }}" class="btn btn-primary">
+                                        ➕ このクラスのインスタンスを作成
+                                    </a>
+                                {% else %}
+                                    <a href="{{ url_for('create_entity_form') }}" class="btn btn-primary">
+                                        ➕ 新しいインスタンスを作成
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// 検索機能
+document.getElementById('search-input').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#entities-table .entity-row');
+    
+    rows.forEach(row => {
+        const name = row.getAttribute('data-name');
+        if (name.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}{{ entity.title }} - エンティティ詳細{% endblock %}
+
+{% block content %}
+<!-- ヘッダー -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{{ url_for('assets_index') }}">エンティティメタ一覧</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{{ url_for('entity_list') }}">エンティティ一覧</a>
+                        </li>
+                        <li class="breadcrumb-item active">{{ entity.title }}</li>
+                    </ol>
+                </nav>
+                <h1>{{ entity.title }}</h1>
+                <p class="text-muted">
+                    <span class="badge bg-secondary me-2">{{ entity.type_name }}</span>
+                    {% if entity.date_out %}
+                        <span class="badge bg-danger">無効</span>
+                    {% else %}
+                        <span class="badge bg-success">有効</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <div class="btn-group">
+                    <a href="{{ url_for('edit_entity', entity_id=entity.identifier) }}" class="btn btn-primary">
+                        ✏️ 編集
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" 
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="visually-hidden">オプション</span>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#">📋 複製</a></li>
+                        <li><a class="dropdown-item" href="#">📤 エクスポート</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="#">🗑️ 削除</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- 基本情報 -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">📋 基本情報</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless table-sm">
+                    <tr>
+                        <th width="120">ID:</th>
+                        <td><code>{{ entity.identifier }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>名前:</th>
+                        <td><strong>{{ entity.title }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>タイプ:</th>
+                        <td><span class="badge bg-secondary">{{ entity.type_name }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>登録日:</th>
+                        <td>{{ entity.date_in }}</td>
+                    </tr>
+                    {% if entity.date_out %}
+                    <tr>
+                        <th>無効化日:</th>
+                        <td><span class="text-danger">{{ entity.date_out }}</span></td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 属性情報 -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">🏷️ 属性情報</h5>
+            </div>
+            <div class="card-body">
+                {% if attributes %}
+                <table class="table table-borderless table-sm">
+                    {% for attr in attributes %}
+                    <tr>
+                        <th width="120">{{ attr.attr_name }}:</th>
+                        <td>
+                            {% if attr.data_type == 'DATE' %}
+                                <span class="text-info">📅 {{ attr.title }}</span>
+                            {% elif attr.data_type == 'EMAIL' %}
+                                <a href="mailto:{{ attr.title }}">✉️ {{ attr.title }}</a>
+                            {% else %}
+                                {{ attr.title }}
+                            {% endif %}
+                            {% if attr.date_event %}
+                            <small class="text-muted d-block">更新: {{ attr.date_event }}</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% else %}
+                <div class="text-muted text-center py-3">
+                    属性情報がありません
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- リレーション情報 -->
+<div class="row">
+    {% if relations_from %}
+    <div class="col-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">🔗 このエンティティから</h5>
+            </div>
+            <div class="card-body">
+                {% for rel in relations_from %}
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <div>
+                        <strong>{{ rel.relation_name }}</strong>
+                        <br>
+                        <a href="{{ url_for('entity_detail', entity_id=rel.entity_to) }}" class="text-decoration-none">
+                            {{ rel.to_entity_title }}
+                        </a>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">{{ rel.date_event }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if relations_to %}
+    <div class="col-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">🔗 このエンティティへ</h5>
+            </div>
+            <div class="card-body">
+                {% for rel in relations_to %}
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <div>
+                        <strong>{{ rel.relation_name }}</strong>
+                        <br>
+                        <a href="{{ url_for('entity_detail', entity_id=rel.entity_from) }}" class="text-decoration-none">
+                            {{ rel.from_entity_title }}
+                        </a>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">{{ rel.date_event }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if not relations_from and not relations_to %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">🔗 リレーション情報</h5>
+            </div>
+            <div class="card-body text-center text-muted py-4">
+                <div style="font-size: 2rem;">🔗</div>
+                <p>このエンティティにはリレーションがありません</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

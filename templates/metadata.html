@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メタデータ管理 - Aggre</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- サイドバー -->
+        <nav class="sidebar">
+            <h2>エンティティ定義</h2>
+            <ul class="nav-list" id="entity-nav">
+                <!-- JavaScript で動的に生成 -->
+            </ul>
+            
+            <div class="metadata-link">
+                <a href="/metadata" style="color: #3498db;">⚙️ メタデータ管理</a>
+            </div>
+        </nav>
+
+        <!-- メインコンテンツ -->
+        <main class="main-content">
+            <div class="header">
+                <h1>メタデータ管理</h1>
+            </div>
+
+            <div class="content-header">
+                <h2 class="content-title">システム設定</h2>
+                <p class="content-subtitle">エンティティタイプ、属性タイプ、関係タイプの定義を管理します</p>
+            </div>
+
+            <!-- エンティティメタ管理 -->
+            <section class="mb-30">
+                <h3>エンティティタイプ</h3>
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>タイプ名</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="entity-meta-tbody">
+                            <!-- JavaScript で動的に生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 属性メタ管理 -->
+            <section class="mb-30">
+                <h3>属性タイプ</h3>
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>所属エンティティ</th>
+                                <th>属性名</th>
+                                <th>データ型</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attribute-meta-tbody">
+                            <!-- JavaScript で動的に生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 関係メタ管理 -->
+            <section class="mb-30">
+                <h3>関係タイプ</h3>
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>関係元エンティティ</th>
+                                <th>関係先エンティティ</th>
+                                <th>関係名</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="relation-meta-tbody">
+                            <!-- JavaScript で動的に生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div class="text-center mt-30">
+                <a href="/" class="btn btn-primary">メイン画面に戻る</a>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // データの初期化
+        const entityMetas = {{entity_metas}};
+        const attributeMetas = {{attribute_metas}};
+        const relationMetas = {{relation_metas}};
+
+        // サイドバーの初期化
+        function initializeSidebar() {
+            const navList = document.getElementById('entity-nav');
+            entityMetas.forEach(meta => {
+                const li = document.createElement('li');
+                li.className = 'nav-item';
+                li.innerHTML = `<a href="/entity/${meta.identifier}" class="nav-link">${meta.title}</a>`;
+                navList.appendChild(li);
+            });
+        }
+
+        // エンティティメタテーブルの表示
+        function renderEntityMetaTable() {
+            const tbody = document.getElementById('entity-meta-tbody');
+            tbody.innerHTML = '';
+            
+            entityMetas.forEach(meta => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${meta.identifier}</td>
+                    <td>${meta.title}</td>
+                    <td>
+                        <button class="btn btn-primary">編集</button>
+                        <button class="btn btn-danger ml-10">削除</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 属性メタテーブルの表示
+        function renderAttributeMetaTable() {
+            const tbody = document.getElementById('attribute-meta-tbody');
+            tbody.innerHTML = '';
+            
+            attributeMetas.forEach(attr => {
+                const entityMeta = entityMetas.find(em => em.identifier === attr.entity_meta_id);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${attr.identifier}</td>
+                    <td>${entityMeta ? entityMeta.title : 'N/A'}</td>
+                    <td>${attr.title}</td>
+                    <td>${attr.data_type}</td>
+                    <td>
+                        <button class="btn btn-primary">編集</button>
+                        <button class="btn btn-danger ml-10">削除</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 関係メタテーブルの表示
+        function renderRelationMetaTable() {
+            const tbody = document.getElementById('relation-meta-tbody');
+            tbody.innerHTML = '';
+            
+            relationMetas.forEach(rel => {
+                const fromEntity = entityMetas.find(em => em.identifier === rel.entity_meta_from);
+                const toEntity = entityMetas.find(em => em.identifier === rel.entity_meta_to);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${rel.identifier}</td>
+                    <td>${fromEntity ? fromEntity.title : 'N/A'}</td>
+                    <td>${toEntity ? toEntity.title : 'N/A'}</td>
+                    <td>${rel.title}</td>
+                    <td>
+                        <button class="btn btn-primary">編集</button>
+                        <button class="btn btn-danger ml-10">削除</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 初期化
+        initializeSidebar();
+        renderEntityMetaTable();
+        renderAttributeMetaTable();
+        renderRelationMetaTable();
+    </script>
+</body>
+</html>

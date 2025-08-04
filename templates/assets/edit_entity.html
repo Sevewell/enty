@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}エンティティ編集 - {{ entity.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>エンティティ編集: {{ entity.title }}</h1>
+        <div class="actions">
+            <a href="{{ url_for('entity_detail', entity_id=entity.identifier) }}" class="btn btn-secondary">← 戻る</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>基本情報</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="form-group">
+                    <label for="title">エンティティ名 <span class="required">*</span></label>
+                    <input type="text" id="title" name="title" value="{{ entity.title }}" required maxlength="200" class="form-control">
+                    <small class="form-text">200文字以内で入力してください</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="date_in">登録日</label>
+                    <input type="date" id="date_in" name="date_in" value="{{ entity.date_in or '' }}" class="form-control">
+                    <small class="form-text">エンティティが登録された日付</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="date_out">削除日</label>
+                    <input type="date" id="date_out" name="date_out" value="{{ entity.date_out or '' }}" class="form-control">
+                    <small class="form-text">エンティティが削除された日付（必要に応じて設定）</small>
+                </div>
+
+                <div class="form-group">
+                    <label>エンティティタイプ</label>
+                    <div class="form-control-static">{{ entity.type_name }}</div>
+                    <small class="form-text">エンティティタイプは変更できません</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">更新</button>
+                    <a href="{{ url_for('entity_detail', entity_id=entity.identifier) }}" class="btn btn-secondary">キャンセル</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 属性値編集セクション -->
+    {% if attributes %}
+    <div class="card">
+        <div class="card-header">
+            <h3>属性値</h3>
+        </div>
+        <div class="card-body">
+            <p class="info-text">属性値を編集するには、各属性の編集ボタンをクリックしてください。</p>
+            <div class="attributes-list">
+                {% for attr in attributes %}
+                <div class="attribute-item">
+                    <div class="attribute-info">
+                        <strong>{{ attr.attr_name }}</strong>
+                        <span class="attribute-type">({{ attr.data_type }})</span>
+                        <div class="attribute-value">{{ attr.title or '(未設定)' }}</div>
+                    </div>
+                    <div class="attribute-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="editAttribute({{ attr.identifier }}, '{{ attr.attr_name }}', '{{ attr.title or '' }}', '{{ attr.data_type }}')">編集</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 属性編集モーダル -->
+<div id="attributeEditModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="attributeModalTitle">属性値編集</h3>
+            <button class="modal-close" onclick="closeAttributeModal()">&times;</button>
+        </div>
+        <form id="attributeEditForm" method="POST" action="{{ url_for('update_attribute_value', entity_id=entity.identifier) }}">
+            <div class="modal-body">
+                <input type="hidden" id="attributeId" name="attribute_id">
+                
+                <div class="form-group">
+                    <label for="attributeValue">値</label>
+                    <input type="text" id="attributeValue" name="attribute_value" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">更新</button>
+                <button type="button" class="btn btn-secondary" onclick="closeAttributeModal()">キャンセル</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editAttribute(attributeId, attributeName, currentValue, dataType) {
+    document.getElementById('attributeModalTitle').textContent = `${attributeName} の編集`;
+    document.getElementById('attributeId').value = attributeId;
+    document.getElementById('attributeValue').value = currentValue;
+    
+    // データ型に応じて入力フィールドを調整
+    const valueInput = document.getElementById('attributeValue');
+    if (dataType === 'date') {
+        valueInput.type = 'date';
+    } else if (dataType === 'number') {
+        valueInput.type = 'number';
+    } else {
+        valueInput.type = 'text';
+    }
+    
+    document.getElementById('attributeEditModal').style.display = 'flex';
+}
+
+function closeAttributeModal() {
+    document.getElementById('attributeEditModal').style.display = 'none';
+}
+
+// モーダル外クリックで閉じる
+document.getElementById('attributeEditModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeAttributeModal();
+    }
+});
+</script>
+
+<style>
+.attributes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.attribute-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background-color: #f9f9f9;
+}
+
+.attribute-info {
+    flex: 1;
+}
+
+.attribute-type {
+    color: #666;
+    font-size: 0.9em;
+    margin-left: 8px;
+}
+
+.attribute-value {
+    margin-top: 4px;
+    color: #333;
+    font-family: monospace;
+}
+
+.attribute-actions {
+    margin-left: 16px;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.info-text {
+    color: #666;
+    margin-bottom: 16px;
+}
+
+.form-control-static {
+    padding: 8px 0;
+    font-weight: 500;
+    color: #333;
+}
+</style>
+{% endblock %}

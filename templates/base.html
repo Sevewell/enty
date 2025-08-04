@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1200">
+    <title>{% block title %}Flask OIDC アプリ{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a class="nav-brand" href="{{ url_for('index') }}">Flask OIDC アプリ</a>
+            <div class="nav-menu">
+                {% if user %}
+                    <a class="nav-link" href="{{ url_for('profile') }}">プロフィール</a>
+                    <a class="nav-link" href="{{ url_for('assets_index') }}">資産管理</a>
+                    <a class="nav-link" href="{{ url_for('protected') }}">保護されたページ</a>
+                    <a class="nav-link" href="{{ url_for('logout') }}">ログアウト</a>
+                {% else %}
+                    <a class="nav-link" href="{{ url_for('index') }}">ログイン</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                        <button type="button" class="alert-close" onclick="this.parentElement.style.display='none'">&times;</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

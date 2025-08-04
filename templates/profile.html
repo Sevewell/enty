@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}プロフィール - Flask OIDC アプリ{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h2>プロフィール</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-4 text-center">
+                        {% if user.picture %}
+                            <img src="{{ user.picture }}" style="max-width: 150px; border-radius: 50%;" alt="プロフィール画像">
+                        {% else %}
+                            <div style="width: 150px; height: 150px; background-color: #95a5a6; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; color: white; font-size: 3rem;">
+                                👤
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-8">
+                        <table class="table">
+                            <tr>
+                                <th>名前</th>
+                                <td>{{ user.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>メールアドレス</th>
+                                <td>{{ user.email }}</td>
+                            </tr>
+                            <tr>
+                                <th>ユーザーID</th>
+                                <td>{{ user.id }}</td>
+                            </tr>
+                            {% if user.department %}
+                            <tr>
+                                <th>部署</th>
+                                <td>{{ user.department }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if user.cipher_key %}
+                            <tr>
+                                <th>暗号鍵</th>
+                                <td>{{ user.cipher_key }}</td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body border-top">
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">ホームに戻る</a>
+                    <a href="{{ url_for('assets_index') }}" class="btn btn-success">資産管理</a>
+                    <a href="{{ url_for('protected') }}" class="btn btn-primary">保護されたページ</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">ログアウト</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block title %}リレーションクラス管理 - {{ entity_meta.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">🔗 リレーションクラス管理 - {{ entity_meta.title }}</h1>
+        <p class="text-muted">「{{ entity_meta.title }}」エンティティクラスのリレーションクラスを定義・管理します。ここで定義したリレーションはインスタンス間の関係として使用できます。</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="header-content">
+                    <h5 class="card-title">📋 リレーションクラス一覧</h5>
+                    <button type="button" class="btn btn-primary" onclick="openModal()">
+                        + リレーションクラス定義
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if relations %}
+                    <div class="list-group">
+                        {% for relation in relations %}
+                        <div class="relation-item">
+                            <div>
+                                <h6 class="relation-title">{{ relation.title }}</h6>
+                                <div class="relation-details">
+                                    <span class="relation-direction">
+                                        {{ relation.from_entity_name }} → {{ relation.to_entity_name }}
+                                    </span>
+                                    <span class="relation-id">ID: {{ relation.identifier }}</span>
+                                </div>
+                            </div>
+                            <div class="relation-actions">
+                                <button class="btn btn-outline" onclick="editRelation({{ relation.identifier }}, '{{ relation.title }}', {{ relation.from_entity_id }}, {{ relation.to_entity_id }})">
+                                    編集
+                                </button>
+                                <button class="btn btn-danger" onclick="deleteRelation({{ relation.identifier }}, '{{ relation.title }}')">
+                                    削除
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <h5>リレーションが登録されていません</h5>
+                        <p>このエンティティタイプにはまだリレーションが定義されていません。</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="action-buttons">
+    <a href="{{ url_for('assets_index') }}" class="btn btn-secondary">
+        ← エンティティメタ一覧に戻る
+    </a>
+</div>
+
+<!-- リレーション登録/編集モーダル -->
+<div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+    <div class="modal-dialog" onclick="event.stopPropagation()">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('create_relation', entity_meta_id=entity_meta.identifier) }}" id="relationForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">リレーション追加</h5>
+                    <button type="button" class="close-btn" onclick="closeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="relationId" name="relation_id">
+                    <div class="form-group">
+                        <label for="relationTitle" class="form-label">リレーション名 <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="relationTitle" name="title" required
+                               placeholder="例: 所属する、管理する、接続先" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="fromEntityId" class="form-label">開始エンティティ <span class="required">*</span></label>
+                        <select class="form-control" id="fromEntityId" name="from_entity_id" required>
+                            <option value="">選択してください</option>
+                            {% for entity_type in entity_types %}
+                            <option value="{{ entity_type.identifier }}" {% if entity_type.identifier == entity_meta.identifier %}selected{% endif %}>
+                                {{ entity_type.title }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="toEntityId" class="form-label">終了エンティティ <span class="required">*</span></label>
+                        <select class="form-control" id="toEntityId" name="to_entity_id" required>
+                            <option value="">選択してください</option>
+                            {% for entity_type in entity_types %}
+                            <option value="{{ entity_type.identifier }}">{{ entity_type.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-help">
+                        <small class="help-text">リレーションの方向性を指定してください。「開始エンティティ」から「終了エンティティ」への関係を表します。</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">追加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 基本スタイル */
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* リレーションリストスタイル */
+.list-group {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.relation-item {
+    border-bottom: 1px solid #ddd;
+    background: #fff;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.relation-item:last-child {
+    border-bottom: none;
+}
+
+.relation-item:hover {
+    background-color: #f8f9fa;
+}
+
+.relation-title {
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.relation-details {
+    display: flex;
+    gap: 15px;
+    font-size: 0.9rem;
+}
+
+.relation-direction {
+    color: #28a745;
+    background-color: #d4edda;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+.relation-id {
+    color: #666;
+}
+
+.relation-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* 空状態スタイル */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.empty-state h5 {
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.empty-state p {
+    margin: 0;
+}
+
+/* アクションボタン */
+.action-buttons {
+    margin-top: 20px;
+}
+
+/* ボタンスタイル */
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    font-size: 14px;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid;
+    border-radius: 4px;
+    background: none;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.btn-secondary {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
+    border-color: #545b62;
+}
+
+.btn-outline {
+    color: #007bff;
+    background-color: transparent;
+    border-color: #007bff;
+}
+
+.btn-outline:hover {
+    color: #fff;
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-danger {
+    color: #fff;
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+/* モーダルスタイル */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.modal-overlay.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-dialog {
+    width: 500px;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+    background-color: #f8f9fa;
+}
+
+.modal-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: #000;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    background-color: #e9ecef;
+    border-radius: 2px;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 15px 20px;
+    border-top: 1px solid #ddd;
+    background-color: #f8f9fa;
+}
+
+/* フォームスタイル */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.required {
+    color: #dc3545;
+}
+
+.form-control {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.form-control:focus {
+    outline: 0;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.form-help {
+    margin-top: 10px;
+}
+
+.help-text {
+    display: block;
+    font-size: 12px;
+    color: #6c757d;
+}
+</style>
+
+<script>
+let isEditMode = false;
+
+function openModal() {
+    const modal = document.getElementById('modal-overlay');
+    const form = document.getElementById('relationForm');
+    
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+    
+    // 新規追加モード
+    isEditMode = false;
+    document.getElementById('modalTitle').textContent = 'リレーション追加';
+    document.getElementById('submitBtn').textContent = '追加';
+    form.action = "{{ url_for('create_relation', entity_meta_id=entity_meta.identifier) }}";
+    
+    // フォームをリセットしてフォーカスを当てる
+    form.reset();
+    
+    // デフォルト選択を復元
+    document.getElementById('fromEntityId').value = "{{ entity_meta.identifier }}";
+    
+    document.getElementById('relationTitle').focus();
+}
+
+function editRelation(id, title, entityMetaFrom, entityMetaTo) {
+    const modal = document.getElementById('modal-overlay');
+    const form = document.getElementById('relationForm');
+    
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+    
+    // 編集モード
+    isEditMode = true;
+    document.getElementById('modalTitle').textContent = 'リレーション編集';
+    document.getElementById('submitBtn').textContent = '更新';
+    form.action = "{{ url_for('update_relation', entity_meta_id=entity_meta.identifier) }}";
+    
+    // フォームに既存値を設定
+    document.getElementById('relationId').value = id;
+    document.getElementById('relationTitle').value = title;
+    document.getElementById('fromEntityId').value = entityMetaFrom;
+    document.getElementById('toEntityId').value = entityMetaTo;
+    
+    document.getElementById('relationTitle').focus();
+}
+
+function deleteRelation(id, title) {
+    if (confirm(`リレーション「${title}」を削除しますか？\n\nこの操作は取り消せません。`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "{{ url_for('delete_relation', entity_meta_id=entity_meta.identifier) }}";
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'relation_id';
+        input.value = id;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function closeModal() {
+    const modal = document.getElementById('modal-overlay');
+    modal.classList.remove('show');
+    modal.style.display = 'none';
+}
+
+// ESCキーでモーダルを閉じる
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeModal();
+    }
+});
+
+// フォーム送信時のバリデーション
+document.getElementById('relationForm').addEventListener('submit', function(event) {
+    const title = document.getElementById('relationTitle').value.trim();
+    const fromEntityId = document.getElementById('fromEntityId').value;
+    const toEntityId = document.getElementById('toEntityId').value;
+    
+    if (!title) {
+        event.preventDefault();
+        alert('リレーション名を入力してください。');
+        document.getElementById('relationTitle').focus();
+    } else if (title.length > 100) {
+        event.preventDefault();
+        alert('リレーション名は100文字以内で入力してください。');
+        document.getElementById('relationTitle').focus();
+    } else if (!fromEntityId) {
+        event.preventDefault();
+        alert('開始エンティティを選択してください。');
+        document.getElementById('fromEntityId').focus();
+    } else if (!toEntityId) {
+        event.preventDefault();
+        alert('終了エンティティを選択してください。');
+        document.getElementById('toEntityId').focus();
+    } else if (fromEntityId === toEntityId) {
+        event.preventDefault();
+        alert('開始エンティティと終了エンティティは異なるものを選択してください。');
+        document.getElementById('toEntityId').focus();
+    }
+});
+</script>
+{% endblock %}

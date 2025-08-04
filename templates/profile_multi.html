@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}プロフィール - マルチプロバイダー OIDC アプリ{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2>プロフィール</h2>
+                {% if provider_info %}
+                    <span class="badge bg-{{ provider_info.color }} fs-6">
+                        {{ provider_info.name }}
+                    </span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        {% if user.picture %}
+                            <img src="{{ user.picture }}" class="img-fluid rounded-circle mb-3" style="max-width: 150px;" alt="プロフィール画像">
+                        {% else %}
+                            <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center mb-3" style="width: 150px; height: 150px; margin: 0 auto;">
+                                <i class="fas fa-user fa-4x text-white"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-8">
+                        <table class="table">
+                            <tr>
+                                <th>名前</th>
+                                <td>{{ user.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>メールアドレス</th>
+                                <td>{{ user.email or 'なし' }}</td>
+                            </tr>
+                            <tr>
+                                <th>ユーザーID</th>
+                                <td>{{ user.id }}</td>
+                            </tr>
+                            <tr>
+                                <th>認証プロバイダー</th>
+                                <td>
+                                    {% if provider_info %}
+                                        <span class="badge bg-{{ provider_info.color }}">
+                                            {{ provider_info.name }}
+                                        </span>
+                                    {% else %}
+                                        {{ user.provider|title }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">ホームに戻る</a>
+                    <a href="{{ url_for('protected') }}" class="btn btn-primary">保護されたページ</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">ログアウト</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

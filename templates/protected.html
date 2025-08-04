@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}保護されたページ - Flask OIDC アプリ{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h2><i class="fas fa-lock"></i> 保護されたページ</h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>認証成功！</strong> このページはログインしたユーザーのみがアクセスできます。
+                </div>
+                
+                <p>こんにちは、<strong>{{ user.name }}</strong>さん！</p>
+                <p>このページは認証が必要な機能の例として作成されました。</p>
+                
+                <h4>ユーザー情報</h4>
+                <ul>
+                    <li><strong>名前:</strong> {{ user.name }}</li>
+                    <li><strong>メールアドレス:</strong> {{ user.email }}</li>
+                    <li><strong>ユーザーID:</strong> {{ user.id }}</li>
+                </ul>
+                
+                <h4>実装できる機能の例</h4>
+                <ul>
+                    <li>ユーザー専用のダッシュボード</li>
+                    <li>個人設定の管理</li>
+                    <li>プライベートなデータの表示</li>
+                    <li>ユーザー固有の操作</li>
+                </ul>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">ホームに戻る</a>
+                    <a href="{{ url_for('profile') }}" class="btn btn-primary">プロフィール</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">ログアウト</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

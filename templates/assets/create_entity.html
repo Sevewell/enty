@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}インスタンス作成{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>✨ エンティティインスタンス作成</h1>
+                <div>
+                    <a href="{{ url_for('entity_list') }}" class="btn btn-secondary">
+                        ← インスタンス一覧に戻る
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">新しいインスタンスを作成</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="create-entity-form">
+                        <!-- 基本情報 -->
+                        <div class="mb-4">
+                            <h6 class="text-primary border-bottom pb-2">基本情報</h6>
+                            
+                            <div class="mb-3">
+                                <label for="title" class="form-label">
+                                    <strong>インスタンス名</strong> <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control" id="title" name="title" 
+                                       placeholder="インスタンスの名前を入力してください" 
+                                       maxlength="200" required>
+                                <div class="form-text">最大200文字まで入力できます。</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="class_id" class="form-label">
+                                    <strong>エンティティクラス</strong> <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-control" id="class_id" name="class_id" required onchange="loadAttributeForm()">
+                                    <option value="">エンティティクラスを選択してください</option>
+                                    {% for entity_type in entity_types %}
+                                    <option value="{{ entity_type.identifier }}" 
+                                            {% if selected_type and (selected_type|int) == entity_type.identifier %}selected{% endif %}>
+                                        {{ entity_type.title }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">作成するインスタンスのクラスを選択してください。</div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-6">
+                                    <label for="date_in" class="form-label">
+                                        <strong>開始日</strong>
+                                    </label>
+                                    <input type="date" class="form-control" id="date_in" name="date_in">
+                                    <div class="form-text">インスタンスの有効開始日（任意）</div>
+                                </div>
+                                <div class="col-6">
+                                    <label for="date_out" class="form-label">
+                                        <strong>終了日</strong>
+                                    </label>
+                                    <input type="date" class="form-control" id="date_out" name="date_out">
+                                    <div class="form-text">インスタンスの有効終了日（任意）</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 属性入力フォーム（動的生成） -->
+                        <div id="attributes-section" {% if not attribute_metas %}style="display: none;"{% endif %}>
+                            <h6 class="text-primary border-bottom pb-2">属性値</h6>
+                            <div id="attribute-fields">
+                                {% if attribute_metas %}
+                                    {% for attr_meta in attribute_metas %}
+                                    <div class="mb-3 attribute-field" data-type="{{ attr_meta.data_type }}">
+                                        <label for="attr_{{ attr_meta.identifier }}" class="form-label">
+                                            <strong>{{ attr_meta.title }}</strong>
+                                            {% if attr_meta.data_type == 'required' %}<span class="text-danger">*</span>{% endif %}
+                                        </label>
+                                        
+                                        {% if attr_meta.data_type == 'text' or attr_meta.data_type == 'TEXT' %}
+                                            <input type="text" class="form-control" 
+                                                   id="attr_{{ attr_meta.identifier }}" 
+                                                   name="attr_{{ attr_meta.identifier }}" 
+                                                   placeholder="テキストを入力してください">
+                                        {% elif attr_meta.data_type == 'number' %}
+                                            <input type="number" class="form-control" 
+                                                   id="attr_{{ attr_meta.identifier }}" 
+                                                   name="attr_{{ attr_meta.identifier }}" 
+                                                   placeholder="数値を入力してください">
+                                        {% elif attr_meta.data_type == 'date' %}
+                                            <input type="date" class="form-control" 
+                                                   id="attr_{{ attr_meta.identifier }}" 
+                                                   name="attr_{{ attr_meta.identifier }}">
+                                        {% elif attr_meta.data_type == 'email' %}
+                                            <input type="email" class="form-control" 
+                                                   id="attr_{{ attr_meta.identifier }}" 
+                                                   name="attr_{{ attr_meta.identifier }}" 
+                                                   placeholder="メールアドレスを入力してください">
+                                        {% elif attr_meta.data_type == 'url' %}
+                                            <input type="url" class="form-control" 
+                                                   id="attr_{{ attr_meta.identifier }}" 
+                                                   name="attr_{{ attr_meta.identifier }}" 
+                                                   placeholder="URLを入力してください">
+                                        {% elif attr_meta.data_type == 'textarea' %}
+                                            <textarea class="form-control" 
+                                                      id="attr_{{ attr_meta.identifier }}" 
+                                                      name="attr_{{ attr_meta.identifier }}" 
+                                                      rows="3" 
+                                                      placeholder="詳細な内容を入力してください"></textarea>
+                                        {% else %}
+                                            <input type="text" class="form-control" 
+                                                   id="attr_{{ attr_meta.identifier }}" 
+                                                   name="attr_{{ attr_meta.identifier }}" 
+                                                   placeholder="値を入力してください">
+                                        {% endif %}
+                                        
+                                        <div class="form-text">
+                                            データ型: {{ attr_meta.data_type }}
+                                            {% if attr_meta.data_type == 'required' %}（必須項目）{% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- 送信ボタン -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('entity_list') }}" class="btn btn-secondary">
+                                キャンセル
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                ✅ インスタンスを作成
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- サイドバー（ヘルプ情報） -->
+        <div class="col-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">💡 作成のヒント</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="text-primary">インスタンス名</h6>
+                        <p class="text-muted text-small">
+                            一意で分かりやすい名前をつけてください。後から変更も可能です。
+                        </p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6 class="text-primary">エンティティクラス</h6>
+                        <p class="text-muted text-small">
+                            クラスを選択すると、そのクラスに定義された属性フィールドが表示されます。
+                        </p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6 class="text-primary">属性値</h6>
+                        <p class="text-muted text-small">
+                            属性値は任意です。後から追加・編集することも可能です。
+                        </p>
+                    </div>
+                    
+                    <div class="mb-0">
+                        <h6 class="text-primary">日付</h6>
+                        <p class="text-muted text-small">
+                            開始日・終了日は管理用です。インスタンスの有効期間を設定できます。
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">📊 現在の状況</h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center">
+                        <div class="text-muted">
+                            <div style="font-size: 2rem;">💼</div>
+                            <p class="mb-1">エンティティクラス数</p>
+                            <h4 class="text-primary">{{ entity_types|length }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadAttributeForm() {
+    const classId = document.getElementById('class_id').value;
+    const attributesSection = document.getElementById('attributes-section');
+    const attributeFields = document.getElementById('attribute-fields');
+    
+    if (!classId) {
+        attributesSection.style.display = 'none';
+        return;
+    }
+    
+    // 現在のページをリロードして属性フィールドを表示
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.set('type', classId);
+    window.location.href = currentUrl.toString();
+}
+
+// フォーム送信前のバリデーション
+document.getElementById('create-entity-form').addEventListener('submit', function(e) {
+    const title = document.getElementById('title').value.trim();
+    const classId = document.getElementById('class_id').value;
+    
+    if (!title) {
+        e.preventDefault();
+        alert('インスタンス名を入力してください。');
+        document.getElementById('title').focus();
+        return;
+    }
+    
+    if (!classId) {
+        e.preventDefault();
+        alert('エンティティクラスを選択してください。');
+        document.getElementById('class_id').focus();
+        return;
+    }
+    
+    // 必須属性のチェック
+    const requiredFields = document.querySelectorAll('.attribute-field[data-type="required"] input, .attribute-field[data-type="required"] textarea');
+    for (let field of requiredFields) {
+        if (!field.value.trim()) {
+            e.preventDefault();
+            alert(`必須項目「${field.previousElementSibling.textContent}」を入力してください。`);
+            field.focus();
+            return;
+        }
+    }
+});
+
+// 日付フィールドの制御
+document.getElementById('date_in').addEventListener('change', function() {
+    const dateOut = document.getElementById('date_out');
+    if (this.value) {
+        dateOut.min = this.value;
+    } else {
+        dateOut.removeAttribute('min');
+    }
+});
+
+document.getElementById('date_out').addEventListener('change', function() {
+    const dateIn = document.getElementById('date_in');
+    if (this.value) {
+        dateIn.max = this.value;
+    } else {
+        dateIn.removeAttribute('max');
+    }
+});
+</script>
+{% endblock %}

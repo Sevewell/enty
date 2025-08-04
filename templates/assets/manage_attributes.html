@@ -1,0 +1,471 @@
+{% extends "base.html" %}
+
+{% block title %}属性クラス管理 - {{ entity_meta.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">🏷️ 属性クラス管理 - {{ entity_meta.title }}</h1>
+        <p class="text-muted">「{{ entity_meta.title }}」エンティティクラスの属性クラスを定義・管理します。ここで定義した属性はインスタンス作成時に入力フィールドとして表示されます。</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="header-content">
+                    <h5 class="card-title">📋 属性クラス一覧</h5>
+                    <button type="button" class="btn btn-primary" onclick="openModal()">
+                        + 属性クラス定義
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if attributes %}
+                    <div class="list-group">
+                        {% for attr in attributes %}
+                        <div class="attribute-item">
+                            <div>
+                                <h6 class="attr-title">{{ attr.title }}</h6>
+                                <div class="attr-details">
+                                    <span class="attr-type">{{ attr.data_type }}</span>
+                                    {% if attr.order_display %}
+                                    <span class="attr-order">表示順: {{ attr.order_display }}</span>
+                                    {% endif %}
+                                    <span class="attr-id">ID: {{ attr.identifier }}</span>
+                                </div>
+                            </div>
+                            <div class="attr-actions">
+                                <button class="btn btn-outline" onclick="editAttribute({{ attr.identifier }}, '{{ attr.title }}', '{{ attr.data_type }}', {{ attr.order_display or 'null' }})">
+                                    編集
+                                </button>
+                                <button class="btn btn-danger" onclick="deleteAttribute({{ attr.identifier }}, '{{ attr.title }}')">
+                                    削除
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon">🏷️</div>
+                        <h5>属性クラスが定義されていません</h5>
+                        <p>このエンティティクラスにはまだ属性クラスが定義されていません。</p>
+                        <button type="button" class="btn btn-primary mt-3" onclick="openModal()">
+                            最初の属性クラスを定義
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="action-buttons">
+    <a href="{{ url_for('assets_index') }}" class="btn btn-secondary">
+        ← クラス管理に戻る
+    </a>
+</div>
+
+<!-- 属性クラス定義/編集モーダル -->
+<div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+    <div class="modal-dialog" onclick="event.stopPropagation()">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('create_attribute', entity_meta_id=entity_meta.identifier) }}" id="attributeForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">🏷️ 属性クラス定義</h5>
+                    <button type="button" class="close-btn" onclick="closeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="attributeId" name="attribute_id">
+                    <div class="form-group">
+                        <label for="attributeTitle" class="form-label">属性クラス名 <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="attributeTitle" name="title" required
+                               placeholder="例: サーバー名、IPアドレス、設置場所" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="dataType" class="form-label">データ型 <span class="required">*</span></label>
+                        <select class="form-control" id="dataType" name="data_type" required>
+                            <option value="">選択してください</option>
+                            <option value="TEXT">テキスト</option>
+                            <option value="INTEGER">整数</option>
+                            <option value="REAL">小数</option>
+                            <option value="DATE">日付</option>
+                            <option value="BOOLEAN">真偽値</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="orderDisplay" class="form-label">表示順</label>
+                        <input type="number" class="form-control" id="orderDisplay" name="order_display"
+                               placeholder="1, 2, 3..." min="1" max="999">
+                        <small class="help-text">未指定の場合は最後に表示されます。</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">💾 クラスを定義</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 基本スタイル */
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* 属性リストスタイル */
+.list-group {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.attribute-item {
+    border-bottom: 1px solid #ddd;
+    background: #fff;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.attribute-item:last-child {
+    border-bottom: none;
+}
+
+.attribute-item:hover {
+    background-color: #f8f9fa;
+}
+
+.attr-title {
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.attr-details {
+    display: flex;
+    gap: 15px;
+    font-size: 0.9rem;
+}
+
+.attr-type {
+    color: #007bff;
+    background-color: #e7f3ff;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+.attr-order {
+    color: #28a745;
+}
+
+.attr-id {
+    color: #666;
+}
+
+.attr-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* 空状態スタイル */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.empty-state h5 {
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.empty-state p {
+    margin: 0;
+}
+
+/* アクションボタン */
+.action-buttons {
+    margin-top: 20px;
+}
+
+/* ボタンスタイル */
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    font-size: 14px;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid;
+    border-radius: 4px;
+    background: none;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.btn-secondary {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
+    border-color: #545b62;
+}
+
+.btn-outline {
+    color: #007bff;
+    background-color: transparent;
+    border-color: #007bff;
+}
+
+.btn-outline:hover {
+    color: #fff;
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-danger {
+    color: #fff;
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+/* モーダルスタイル */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.modal-overlay.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-dialog {
+    width: 500px;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+    background-color: #f8f9fa;
+}
+
+.modal-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: #000;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    background-color: #e9ecef;
+    border-radius: 2px;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 15px 20px;
+    border-top: 1px solid #ddd;
+    background-color: #f8f9fa;
+}
+
+/* フォームスタイル */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.required {
+    color: #dc3545;
+}
+
+.form-control {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.form-control:focus {
+    outline: 0;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.help-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: #6c757d;
+}
+</style>
+
+<script>
+let isEditMode = false;
+
+function openModal() {
+    const modal = document.getElementById('modal-overlay');
+    const form = document.getElementById('attributeForm');
+    
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+    
+    // 新規定義モード
+    isEditMode = false;
+    document.getElementById('modalTitle').textContent = '🏷️ 属性クラス定義';
+    document.getElementById('submitBtn').textContent = '💾 クラスを定義';
+    form.action = "{{ url_for('create_attribute', entity_meta_id=entity_meta.identifier) }}";
+    
+    // フォームをリセットしてフォーカスを当てる
+    form.reset();
+    document.getElementById('attributeTitle').focus();
+}
+
+function editAttribute(id, title, dataType, orderDisplay) {
+    const modal = document.getElementById('modal-overlay');
+    const form = document.getElementById('attributeForm');
+    
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+    
+    // 編集モード
+    isEditMode = true;
+    document.getElementById('modalTitle').textContent = '✏️ 属性クラス編集';
+    document.getElementById('submitBtn').textContent = '💾 更新';
+    form.action = "{{ url_for('update_attribute', entity_meta_id=entity_meta.identifier) }}";
+    
+    // フォームに既存値を設定
+    document.getElementById('attributeId').value = id;
+    document.getElementById('attributeTitle').value = title;
+    document.getElementById('dataType').value = dataType;
+    document.getElementById('orderDisplay').value = orderDisplay || '';
+    
+    document.getElementById('attributeTitle').focus();
+}
+
+function deleteAttribute(id, title) {
+    if (confirm(`属性クラス「${title}」を削除しますか？\n\nこの操作は取り消せません。`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "{{ url_for('delete_attribute', entity_meta_id=entity_meta.identifier) }}";
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'attribute_id';
+        input.value = id;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function closeModal() {
+    const modal = document.getElementById('modal-overlay');
+    modal.classList.remove('show');
+    modal.style.display = 'none';
+}
+
+// ESCキーでモーダルを閉じる
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeModal();
+    }
+});
+
+// フォーム送信時のバリデーション
+document.getElementById('attributeForm').addEventListener('submit', function(event) {
+    const title = document.getElementById('attributeTitle').value.trim();
+    const dataType = document.getElementById('dataType').value;
+    
+    if (!title) {
+        event.preventDefault();
+        alert('属性クラス名を入力してください。');
+        document.getElementById('attributeTitle').focus();
+    } else if (title.length > 100) {
+        event.preventDefault();
+        alert('属性クラス名は100文字以内で入力してください。');
+        document.getElementById('attributeTitle').focus();
+    } else if (!dataType) {
+        event.preventDefault();
+        alert('データ型を選択してください。');
+        document.getElementById('dataType').focus();
+    }
+});
+</script>
+{% endblock %}
