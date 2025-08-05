@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}資産管理ダッシュボード{% endblock %}
+{% block title %}クラス・インスタンス管理ダッシュボード{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h1 class="mb-4">資産管理ダッシュボード</h1>
+        <h1 class="mb-4">クラス・インスタンス管理ダッシュボード</h1>
     </div>
 </div>
 
@@ -77,19 +77,19 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="{{ url_for('entity_list') }}" class="btn btn-outline-primary">
-                        📋 全エンティティを表示
+                    <a href="{{ url_for('instances_list') }}" class="btn btn-outline-primary">
+                        📋 全インスタンスを表示
                     </a>
-                    <a href="{{ url_for('entity_list', type=1) }}" class="btn btn-outline-primary">
+                    <a href="{{ url_for('instances_list', type=1) }}" class="btn btn-outline-primary">
                         👥 人員一覧
                     </a>
-                    <a href="{{ url_for('entity_list', type=2) }}" class="btn btn-outline-success">
+                    <a href="{{ url_for('instances_list', type=2) }}" class="btn btn-outline-success">
                         💻 デバイス一覧
                     </a>
-                    <a href="{{ url_for('entity_list', type=3) }}" class="btn btn-outline-info">
+                    <a href="{{ url_for('instances_list', type=3) }}" class="btn btn-outline-info">
                         💿 ソフトウェア一覧
                     </a>
-                    <a href="{{ url_for('entity_list', type=4) }}" class="btn btn-outline-warning">
+                    <a href="{{ url_for('instances_list', type=4) }}" class="btn btn-outline-warning">
                         🖨️ オフィス機器一覧
                     </a>
                 </div>
@@ -158,7 +158,7 @@ function loadDashboardData() {
                     <div class="text-end">
                         <small class="text-muted">${entity.date_in}</small>
                         <br>
-                        <a href="/assets/entity/${entity.identifier}" class="btn btn-sm btn-outline-primary">詳細</a>
+                        <a href="/instances/${entity.identifier}" class="btn btn-sm btn-outline-primary">詳細</a>
                     </div>
                 </div>
             `).join('');

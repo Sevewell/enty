@@ -122,7 +122,7 @@ def protected():
     
     return render_template('protected.html', user=user, provider_name=PROVIDER_NAME)
 
-# === 資産管理機能 ===
+# === クラス・インスタンス管理機能 ===
 
 def require_login(f):
     """ログイン必須デコレータ"""
@@ -135,26 +135,26 @@ def require_login(f):
     decorated_function.__name__ = f.__name__
     return decorated_function
 
-@app.route('/assets')
+@app.route('/classes')
 @require_login
-def assets_index():
-    """資産管理トップページ"""
+def classes_index():
+    """クラス管理トップページ"""
     user = session.get('user')
     
     try:
         entity_metas = EntityMetaRepository.get_all()
-        return render_template('assets/index.html', 
+        return render_template('classes/index.html', 
                              entity_metas=entity_metas,
                              user=user, 
                              provider_name=PROVIDER_NAME)
     except Exception as e:
         flash(f'データの取得に失敗しました: {str(e)}', 'error')
-        return render_template('assets/index.html', 
+        return render_template('classes/index.html', 
                              entity_metas=[],
                              user=user, 
                              provider_name=PROVIDER_NAME)
 
-@app.route('/assets/entity-meta/create', methods=['POST'])
+@app.route('/classes/create', methods=['POST'])
 @require_login
 def create_entity_meta():
     """エンティティメタ作成"""
@@ -164,29 +164,29 @@ def create_entity_meta():
         # バリデーション
         if not title:
             flash('エンティティタイプ名を入力してください。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         if len(title) > 100:
             flash('エンティティタイプ名は100文字以内で入力してください。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         # 重複チェック
         if EntityMetaRepository.exists_by_title(title):
             flash(f'「{title}」は既に登録されています。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         # エンティティメタを作成
         entity_meta_id = EntityMetaRepository.create(title)
         
         flash(f'エンティティタイプ「{title}」を登録しました。', 'success')
-        return redirect(url_for('assets_index'))
+        return redirect(url_for('classes_index'))
         
     except Exception as e:
         print(f'Error creating entity meta: {e}')
         flash('エンティティメタの登録中にエラーが発生しました。', 'error')
-        return redirect(url_for('assets_index'))
+        return redirect(url_for('classes_index'))
 
-@app.route('/assets/entity-meta/<int:entity_meta_id>/attributes')
+@app.route('/classes/<int:entity_meta_id>/attributes')
 @require_login
 def manage_attributes(entity_meta_id):
     """属性管理ページ"""
@@ -195,12 +195,12 @@ def manage_attributes(entity_meta_id):
         entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
         if not entity_meta:
             flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         # 属性メタ一覧を取得
         attributes = AttributeMetaRepository.get_by_entity_meta_id(entity_meta_id)
         
-        return render_template('assets/manage_attributes.html',
+        return render_template('classes/manage_attributes.html',
                              entity_meta=entity_meta,
                              attributes=attributes,
                              user=session.get('user'),
@@ -209,9 +209,9 @@ def manage_attributes(entity_meta_id):
     except Exception as e:
         print(f'Error in manage_attributes: {e}')
         flash('データの取得に失敗しました。', 'error')
-        return redirect(url_for('assets_index'))
+        return redirect(url_for('classes_index'))
 
-@app.route('/assets/entity-meta/<int:entity_meta_id>/attributes/create', methods=['POST'])
+@app.route('/classes/<int:entity_meta_id>/attributes/create', methods=['POST'])
 @require_login
 def create_attribute(entity_meta_id):
     """属性作成"""
@@ -220,7 +220,7 @@ def create_attribute(entity_meta_id):
         entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
         if not entity_meta:
             flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         title = request.form.get('title', '').strip()
         data_type = request.form.get('data_type', '').strip()
@@ -267,7 +267,7 @@ def create_attribute(entity_meta_id):
         flash('属性の追加中にエラーが発生しました。', 'error')
         return redirect(url_for('manage_attributes', entity_meta_id=entity_meta_id))
 
-@app.route('/assets/entity-meta/<int:entity_meta_id>/attributes/update', methods=['POST'])
+@app.route('/classes/<int:entity_meta_id>/attributes/update', methods=['POST'])
 @require_login
 def update_attribute(entity_meta_id):
     """属性更新"""
@@ -276,7 +276,7 @@ def update_attribute(entity_meta_id):
         entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
         if not entity_meta:
             flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         attribute_id = request.form.get('attribute_id')
         title = request.form.get('title', '').strip()
@@ -344,7 +344,7 @@ def update_attribute(entity_meta_id):
         flash('属性の更新中にエラーが発生しました。', 'error')
         return redirect(url_for('manage_attributes', entity_meta_id=entity_meta_id))
 
-@app.route('/assets/entity-meta/<int:entity_meta_id>/attributes/delete', methods=['POST'])
+@app.route('/classes/<int:entity_meta_id>/attributes/delete', methods=['POST'])
 @require_login
 def delete_attribute(entity_meta_id):
     """属性削除"""
@@ -353,7 +353,7 @@ def delete_attribute(entity_meta_id):
         entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
         if not entity_meta:
             flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         attribute_id = request.form.get('attribute_id')
         
@@ -388,7 +388,7 @@ def delete_attribute(entity_meta_id):
         flash('属性の削除中にエラーが発生しました。', 'error')
         return redirect(url_for('manage_attributes', entity_meta_id=entity_meta_id))
 
-@app.route('/assets/entity-meta/<int:entity_meta_id>/relations')
+@app.route('/classes/<int:entity_meta_id>/relations')
 @require_login
 def manage_relations(entity_meta_id):
     """リレーション管理ページ"""
@@ -397,7 +397,7 @@ def manage_relations(entity_meta_id):
         entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
         if not entity_meta:
             flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         # リレーションメタ一覧を取得
         relations = RelationMetaRepository.get_by_entity_meta_id(entity_meta_id)
@@ -405,7 +405,7 @@ def manage_relations(entity_meta_id):
         # 全エンティティタイプを取得（セレクトボックス用）
         entity_types = EntityMetaRepository.get_all()
         
-        return render_template('assets/manage_relations.html',
+        return render_template('classes/manage_relations.html',
                              entity_meta=entity_meta,
                              relations=relations,
                              entity_types=entity_types,
@@ -415,9 +415,9 @@ def manage_relations(entity_meta_id):
     except Exception as e:
         print(f'Error in manage_relations: {e}')
         flash('データの取得に失敗しました。', 'error')
-        return redirect(url_for('assets_index'))
+        return redirect(url_for('classes_index'))
 
-@app.route('/assets/entity-meta/<int:entity_meta_id>/relations/create', methods=['POST'])
+@app.route('/classes/<int:entity_meta_id>/relations/create', methods=['POST'])
 @require_login
 def create_relation(entity_meta_id):
     """リレーション作成"""
@@ -426,7 +426,7 @@ def create_relation(entity_meta_id):
         entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
         if not entity_meta:
             flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         title = request.form.get('title', '').strip()
         from_entity_id = request.form.get('from_entity_id', '').strip()
@@ -481,7 +481,7 @@ def create_relation(entity_meta_id):
         flash('リレーションの追加中にエラーが発生しました。', 'error')
         return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
 
-@app.route('/assets/entity-meta/<int:entity_meta_id>/relations/update', methods=['POST'])
+@app.route('/classes/<int:entity_meta_id>/relations/update', methods=['POST'])
 @require_login
 def update_relation(entity_meta_id):
     """リレーション更新"""
@@ -490,7 +490,7 @@ def update_relation(entity_meta_id):
         entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
         if not entity_meta:
             flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         relation_id = request.form.get('relation_id')
         title = request.form.get('title', '').strip()
@@ -553,7 +553,7 @@ def update_relation(entity_meta_id):
         flash('リレーションの更新中にエラーが発生しました。', 'error')
         return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
 
-@app.route('/assets/entity-meta/<int:entity_meta_id>/relations/delete', methods=['POST'])
+@app.route('/classes/<int:entity_meta_id>/relations/delete', methods=['POST'])
 @require_login
 def delete_relation(entity_meta_id):
     """リレーション削除"""
@@ -562,7 +562,7 @@ def delete_relation(entity_meta_id):
         entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
         if not entity_meta:
             flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('assets_index'))
+            return redirect(url_for('classes_index'))
         
         relation_id = request.form.get('relation_id')
         
@@ -597,10 +597,10 @@ def delete_relation(entity_meta_id):
         flash('リレーションの削除中にエラーが発生しました。', 'error')
         return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
 
-@app.route('/assets/entities')
+@app.route('/instances')
 @require_login
-def entity_list():
-    """エンティティ一覧ページ"""
+def instances_list():
+    """インスタンス一覧ページ"""
     user = session.get('user')
     entity_type = request.args.get('type')
     
@@ -612,13 +612,13 @@ def entity_list():
                 entities = EntityRepository.get_by_type(entity_type_id)
             except (ValueError, TypeError):
                 flash('無効なエンティティタイプです', 'error')
-                return redirect(url_for('entity_list'))
+                return redirect(url_for('instances_list'))
         else:
             entities = EntityRepository.get_all()
         
         entity_types = EntityMetaRepository.get_all()
         
-        return render_template('assets/entities.html', 
+        return render_template('instances/list.html', 
                              entities=entities, 
                              entity_types=entity_types,
                              current_type=entity_type,
@@ -627,17 +627,17 @@ def entity_list():
     
     except Exception as e:
         flash(f'データの取得に失敗しました: {str(e)}', 'error')
-        return render_template('assets/entities.html', 
+        return render_template('instances/list.html', 
                              entities=[], 
                              entity_types=[],
                              current_type=entity_type,
                              user=user, 
                              provider_name=PROVIDER_NAME)
 
-@app.route('/assets/entity/<int:entity_id>')
+@app.route('/instances/<int:entity_id>')
 @require_login
-def entity_detail(entity_id):
-    """エンティティ詳細ページ"""
+def instance_detail(entity_id):
+    """インスタンス詳細ページ"""
     user = session.get('user')
     
     try:
@@ -646,7 +646,7 @@ def entity_detail(entity_id):
         
         if not entity:
             flash('エンティティが見つかりません', 'error')
-            return redirect(url_for('entity_list'))
+            return redirect(url_for('instances_list'))
         
         # 属性情報
         attributes = AttributeRepository.get_by_entity_id(entity_id)
@@ -655,7 +655,7 @@ def entity_detail(entity_id):
         relations_from = RelationRepository.get_relations_from(entity_id)
         relations_to = RelationRepository.get_relations_to(entity_id)
         
-        return render_template('assets/entity_detail.html', 
+        return render_template('instances/detail.html', 
                              entity=entity,
                              attributes=attributes,
                              relations_from=relations_from,
@@ -665,12 +665,12 @@ def entity_detail(entity_id):
     
     except Exception as e:
         flash(f'データの取得に失敗しました: {str(e)}', 'error')
-        return redirect(url_for('entity_list'))
+        return redirect(url_for('instances_list'))
 
-@app.route('/assets/entity/create', methods=['GET'])
+@app.route('/instances/create', methods=['GET'])
 @require_login
-def create_entity_form():
-    """エンティティ作成フォーム"""
+def create_instance_form():
+    """インスタンス作成フォーム"""
     entity_type = request.args.get('type')
     
     try:
@@ -681,12 +681,12 @@ def create_entity_form():
                 entity_meta = EntityMetaRepository.get_by_id(entity_type_id)
                 if not entity_meta:
                     flash('指定されたエンティティタイプが見つかりません', 'error')
-                    return redirect(url_for('entity_list'))
+                    return redirect(url_for('instances_list'))
                 
                 attribute_metas = AttributeMetaRepository.get_by_entity_meta_id(entity_type_id)
             except (ValueError, TypeError):
                 flash('無効なエンティティタイプです', 'error')
-                return redirect(url_for('entity_list'))
+                return redirect(url_for('instances_list'))
         else:
             entity_meta = None
             attribute_metas = []
@@ -694,7 +694,7 @@ def create_entity_form():
         # 全エンティティタイプを取得（セレクトボックス用）
         entity_types = EntityMetaRepository.get_all()
         
-        return render_template('assets/create_entity.html',
+        return render_template('instances/create.html',
                              entity_meta=entity_meta,
                              attribute_metas=attribute_metas,
                              entity_types=entity_types,
@@ -705,12 +705,12 @@ def create_entity_form():
     except Exception as e:
         print(f'Error in create_entity_form: {e}')
         flash('フォームの表示中にエラーが発生しました。', 'error')
-        return redirect(url_for('entity_list'))
+        return redirect(url_for('instances_list'))
 
-@app.route('/assets/entity/create', methods=['POST'])
+@app.route('/instances/create', methods=['POST'])
 @require_login
-def create_entity():
-    """エンティティ作成実行"""
+def create_instance():
+    """インスタンス作成実行"""
     try:
         title = request.form.get('title', '').strip()
         class_id = request.form.get('class_id', '').strip()
@@ -753,17 +753,17 @@ def create_entity():
                 AttributeRepository.create(attr_value, attr_class['identifier'], entity_id)
         
         flash(f'エンティティ「{title}」を作成しました。', 'success')
-        return redirect(url_for('entity_detail', entity_id=entity_id))
+        return redirect(url_for('instance_detail', entity_id=entity_id))
         
     except Exception as e:
         print(f'Error creating entity: {e}')
         flash('エンティティの作成中にエラーが発生しました。', 'error')
-        return redirect(url_for('entity_list'))
+        return redirect(url_for('instances_list'))
 
-@app.route('/assets/entity/<int:entity_id>/edit', methods=['GET'])
+@app.route('/instances/<int:entity_id>/edit', methods=['GET'])
 @require_login
-def edit_entity(entity_id):
-    """エンティティ編集フォーム"""
+def edit_instance(entity_id):
+    """インスタンス編集フォーム"""
     user = session.get('user')
     
     try:
@@ -772,12 +772,12 @@ def edit_entity(entity_id):
         
         if not entity:
             flash('エンティティが見つかりません', 'error')
-            return redirect(url_for('entity_list'))
+            return redirect(url_for('instances_list'))
         
         # 属性情報
         attributes = AttributeRepository.get_by_entity_id(entity_id)
         
-        return render_template('assets/edit_entity.html', 
+        return render_template('instances/edit.html', 
                              entity=entity,
                              attributes=attributes,
                              user=user, 
@@ -786,18 +786,18 @@ def edit_entity(entity_id):
     except Exception as e:
         print(f'Error in edit_entity: {e}')
         flash('エンティティ編集フォームの表示中にエラーが発生しました。', 'error')
-        return redirect(url_for('entity_detail', entity_id=entity_id))
+        return redirect(url_for('instance_detail', entity_id=entity_id))
 
-@app.route('/assets/entity/<int:entity_id>/edit', methods=['POST'])
+@app.route('/instances/<int:entity_id>/edit', methods=['POST'])
 @require_login
-def update_entity(entity_id):
-    """エンティティ更新実行"""
+def update_instance(entity_id):
+    """インスタンス更新実行"""
     try:
         # エンティティの存在確認
         entity = EntityRepository.get_by_id(entity_id)
         if not entity:
             flash('エンティティが見つかりません', 'error')
-            return redirect(url_for('entity_list'))
+            return redirect(url_for('instances_list'))
         
         title = request.form.get('title', '').strip()
         date_in = request.form.get('date_in', '').strip() or None
@@ -806,28 +806,28 @@ def update_entity(entity_id):
         # バリデーション
         if not title:
             flash('エンティティ名を入力してください。', 'error')
-            return redirect(url_for('edit_entity', entity_id=entity_id))
+            return redirect(url_for('edit_instance', entity_id=entity_id))
         
         if len(title) > 200:
             flash('エンティティ名は200文字以内で入力してください。', 'error')
-            return redirect(url_for('edit_entity', entity_id=entity_id))
+            return redirect(url_for('edit_instance', entity_id=entity_id))
         
         # エンティティを更新
         success = EntityRepository.update(entity_id, title=title, date_in=date_in, date_out=date_out)
         
         if success:
             flash(f'エンティティ「{title}」を更新しました。', 'success')
-            return redirect(url_for('entity_detail', entity_id=entity_id))
+            return redirect(url_for('instance_detail', entity_id=entity_id))
         else:
             flash('エンティティの更新に失敗しました。', 'error')
-            return redirect(url_for('edit_entity', entity_id=entity_id))
+            return redirect(url_for('edit_instance', entity_id=entity_id))
         
     except Exception as e:
         print(f'Error updating entity: {e}')
         flash('エンティティの更新中にエラーが発生しました。', 'error')
-        return redirect(url_for('edit_entity', entity_id=entity_id))
+        return redirect(url_for('edit_instance', entity_id=entity_id))
 
-@app.route('/assets/entity/<int:entity_id>/attribute/update', methods=['POST'])
+@app.route('/instances/<int:entity_id>/attribute/update', methods=['POST'])
 @require_login
 def update_attribute_value(entity_id):
     """属性値更新"""
@@ -836,20 +836,20 @@ def update_attribute_value(entity_id):
         entity = EntityRepository.get_by_id(entity_id)
         if not entity:
             flash('エンティティが見つかりません', 'error')
-            return redirect(url_for('entity_list'))
+            return redirect(url_for('instances_list'))
         
         attribute_id = request.form.get('attribute_id')
         attribute_value = request.form.get('attribute_value', '').strip()
         
         if not attribute_id:
             flash('属性IDが指定されていません。', 'error')
-            return redirect(url_for('edit_entity', entity_id=entity_id))
+            return redirect(url_for('edit_instance', entity_id=entity_id))
         
         try:
             attribute_id = int(attribute_id)
         except ValueError:
             flash('無効な属性IDです。', 'error')
-            return redirect(url_for('edit_entity', entity_id=entity_id))
+            return redirect(url_for('edit_instance', entity_id=entity_id))
         
         # 属性値を更新
         success = AttributeRepository.update(attribute_id, title=attribute_value)
@@ -859,12 +859,12 @@ def update_attribute_value(entity_id):
         else:
             flash('属性値の更新に失敗しました。', 'error')
         
-        return redirect(url_for('edit_entity', entity_id=entity_id))
+        return redirect(url_for('edit_instance', entity_id=entity_id))
         
     except Exception as e:
         print(f'Error updating attribute value: {e}')
         flash('属性値の更新中にエラーが発生しました。', 'error')
-        return redirect(url_for('edit_entity', entity_id=entity_id))
+        return redirect(url_for('edit_instance', entity_id=entity_id))
 
 if __name__ == '__main__':
     app.run(debug=True, host='localhost', port=5000)

@@ -13,7 +13,8 @@
             <div class="nav-menu">
                 {% if user %}
                     <a class="nav-link" href="{{ url_for('profile') }}">プロフィール</a>
-                    <a class="nav-link" href="{{ url_for('assets_index') }}">資産管理</a>
+                    <a class="nav-link" href="{{ url_for('classes_index') }}">クラス管理</a>
+                    <a class="nav-link" href="{{ url_for('instances_list') }}">インスタンス管理</a>
                     <a class="nav-link" href="{{ url_for('protected') }}">保護されたページ</a>
                     <a class="nav-link" href="{{ url_for('logout') }}">ログアウト</a>
                 {% else %}

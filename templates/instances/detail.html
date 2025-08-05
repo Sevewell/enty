@@ -11,10 +11,10 @@
                 <nav>
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item">
-                            <a href="{{ url_for('assets_index') }}">エンティティメタ一覧</a>
+                            <a href="{{ url_for('classes_index') }}">クラス管理</a>
                         </li>
                         <li class="breadcrumb-item">
-                            <a href="{{ url_for('entity_list') }}">エンティティ一覧</a>
+                            <a href="{{ url_for('instances_list') }}">インスタンス一覧</a>
                         </li>
                         <li class="breadcrumb-item active">{{ entity.title }}</li>
                     </ol>
@@ -31,7 +31,7 @@
             </div>
             <div>
                 <div class="btn-group">
-                    <a href="{{ url_for('edit_entity', entity_id=entity.identifier) }}" class="btn btn-primary">
+                    <a href="{{ url_for('edit_instance', entity_id=entity.identifier) }}" class="btn btn-primary">
                         ✏️ 編集
                     </a>
                     <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" 
@@ -137,7 +137,7 @@
                     <div>
                         <strong>{{ rel.relation_name }}</strong>
                         <br>
-                        <a href="{{ url_for('entity_detail', entity_id=rel.entity_to) }}" class="text-decoration-none">
+                        <a href="{{ url_for('instance_detail', entity_id=rel.entity_to) }}" class="text-decoration-none">
                             {{ rel.to_entity_title }}
                         </a>
                     </div>
@@ -163,7 +163,7 @@
                     <div>
                         <strong>{{ rel.relation_name }}</strong>
                         <br>
-                        <a href="{{ url_for('entity_detail', entity_id=rel.entity_from) }}" class="text-decoration-none">
+                        <a href="{{ url_for('instance_detail', entity_id=rel.entity_from) }}" class="text-decoration-none">
                             {{ rel.from_entity_title }}
                         </a>
                     </div>

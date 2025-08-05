@@ -12,7 +12,8 @@
                 <p>こんにちは、{{ user.name }}さん！</p>
                 <div class="d-flex gap-3 justify-content-center">
                     <a class="btn btn-primary btn-lg" href="{{ url_for('profile') }}" role="button">プロフィールを見る</a>
-                    <a class="btn btn-success btn-lg" href="{{ url_for('assets_index') }}" role="button">資産管理</a>
+                    <a class="btn btn-success btn-lg" href="{{ url_for('classes_index') }}" role="button">クラス管理</a>
+                    <a class="btn btn-info btn-lg" href="{{ url_for('instances_list') }}" role="button">インスタンス管理</a>
                     <a class="btn btn-secondary btn-lg" href="{{ url_for('protected') }}" role="button">保護されたページ</a>
                 </div>
             {% else %}
@@ -36,14 +37,14 @@
                         <strong>プロフィール表示</strong> - ログインしたユーザーの情報を表示
                     </li>
                     <li class="list-group-item">
-                        <strong>資産管理</strong> - 人員、デバイス、ソフトウェア、オフィス機器の管理
+                        <strong>クラス・インスタンス管理</strong> - エンティティクラスの定義とインスタンスの作成・管理
                     </li>
                 </ul>
             </div>
             <div class="col-6">
                 <ul class="list-group">
                     <li class="list-group-item">
-                        <strong>エンティティリレーション</strong> - 資産間の関係性を管理
+                        <strong>エンティティリレーション</strong> - インスタンス間の関係性を管理
                     </li>
                     <li class="list-group-item">
                         <strong>セッション管理</strong> - ログイン状態の維持とログアウト機能

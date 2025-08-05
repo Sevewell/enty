@@ -31,7 +31,7 @@
                                 <small class="item-id">クラスID: {{ meta.identifier }}</small>
                             </div>
                             <div class="item-buttons">
-                                <a href="{{ url_for('entity_list', type=meta.identifier) }}" 
+                                <a href="{{ url_for('instances_list', type=meta.identifier) }}" 
                                    class="btn btn-outline">
                                     📦 インスタンス一覧
                                 </a>
@@ -63,7 +63,7 @@
 </div>
 
 <div class="action-buttons">
-    <a href="{{ url_for('entity_list') }}" class="btn btn-info">
+    <a href="{{ url_for('instances_list') }}" class="btn btn-info">
         📦 全インスタンス一覧を表示
     </a>
 </div>

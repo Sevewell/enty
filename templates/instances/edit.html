@@ -7,7 +7,7 @@
     <div class="header">
         <h1>エンティティ編集: {{ entity.title }}</h1>
         <div class="actions">
-            <a href="{{ url_for('entity_detail', entity_id=entity.identifier) }}" class="btn btn-secondary">← 戻る</a>
+            <a href="{{ url_for('instance_detail', entity_id=entity.identifier) }}" class="btn btn-secondary">← 戻る</a>
         </div>
     </div>
 
@@ -43,7 +43,7 @@
 
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">更新</button>
-                    <a href="{{ url_for('entity_detail', entity_id=entity.identifier) }}" class="btn btn-secondary">キャンセル</a>
+                    <a href="{{ url_for('instance_detail', entity_id=entity.identifier) }}" class="btn btn-secondary">キャンセル</a>
                 </div>
             </form>
         </div>
