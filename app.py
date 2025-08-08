@@ -1,14 +1,13 @@
 from flask import Flask, render_template, redirect, url_for, session, flash, request
 from authlib.integrations.flask_client import OAuth
 import os
+from datetime import datetime, date
 from dotenv import load_dotenv
 from db import (
     EntityMetaRepository, 
     EntityRepository, 
     AttributeRepository, 
-    RelationRepository,
-    AttributeMetaRepository,
-    RelationMetaRepository
+    AttributeMetaRepository
 )
 
 # 環境変数を読み込み
@@ -44,7 +43,8 @@ oidc = oauth.register(
 @app.route('/')
 def index():
     user = session.get('user')
-    return render_template('index.html', user=user, provider_name=PROVIDER_NAME)
+    view_date = get_view_date()
+    return render_template('index.html', user=user, view_date=view_date, provider_name=PROVIDER_NAME)
 
 # ログイン開始
 @app.route('/login')
@@ -135,22 +135,40 @@ def require_login(f):
     decorated_function.__name__ = f.__name__
     return decorated_function
 
+def get_view_date():
+    """リクエストからview_dateパラメータを取得し、有効な日付を返す"""
+    view_date_str = request.args.get('view_date')
+    
+    if not view_date_str:
+        # パラメータがない場合は現在日を返す
+        return date.today()
+    
+    try:
+        # YYYY-MM-DD 形式の文字列を日付オブジェクトに変換
+        return datetime.strptime(view_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        # 無効な日付形式の場合は現在日を返す
+        return date.today()
+
 @app.route('/classes')
 @require_login
 def classes_index():
     """クラス管理トップページ"""
     user = session.get('user')
+    view_date = get_view_date()
     
     try:
         entity_metas = EntityMetaRepository.get_all()
         return render_template('classes/index.html', 
                              entity_metas=entity_metas,
+                             view_date=view_date,
                              user=user, 
                              provider_name=PROVIDER_NAME)
     except Exception as e:
         flash(f'データの取得に失敗しました: {str(e)}', 'error')
         return render_template('classes/index.html', 
                              entity_metas=[],
+                             view_date=view_date,
                              user=user, 
                              provider_name=PROVIDER_NAME)
 
@@ -388,233 +406,28 @@ def delete_attribute(entity_meta_id):
         flash('属性の削除中にエラーが発生しました。', 'error')
         return redirect(url_for('manage_attributes', entity_meta_id=entity_meta_id))
 
-@app.route('/classes/<int:entity_meta_id>/relations')
-@require_login
-def manage_relations(entity_meta_id):
-    """リレーション管理ページ"""
-    try:
-        # エンティティメタの存在確認
-        entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
-        if not entity_meta:
-            flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('classes_index'))
-        
-        # リレーションメタ一覧を取得
-        relations = RelationMetaRepository.get_by_entity_meta_id(entity_meta_id)
-        
-        # 全エンティティタイプを取得（セレクトボックス用）
-        entity_types = EntityMetaRepository.get_all()
-        
-        return render_template('classes/manage_relations.html',
-                             entity_meta=entity_meta,
-                             relations=relations,
-                             entity_types=entity_types,
-                             user=session.get('user'),
-                             provider_name=PROVIDER_NAME)
-    
-    except Exception as e:
-        print(f'Error in manage_relations: {e}')
-        flash('データの取得に失敗しました。', 'error')
-        return redirect(url_for('classes_index'))
-
-@app.route('/classes/<int:entity_meta_id>/relations/create', methods=['POST'])
-@require_login
-def create_relation(entity_meta_id):
-    """リレーション作成"""
-    try:
-        # エンティティメタの存在確認
-        entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
-        if not entity_meta:
-            flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('classes_index'))
-        
-        title = request.form.get('title', '').strip()
-        from_entity_id = request.form.get('from_entity_id', '').strip()
-        to_entity_id = request.form.get('to_entity_id', '').strip()
-        
-        # バリデーション
-        if not title:
-            flash('リレーション名を入力してください。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        if len(title) > 100:
-            flash('リレーション名は100文字以内で入力してください。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        if not from_entity_id:
-            flash('開始エンティティを選択してください。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        if not to_entity_id:
-            flash('終了エンティティを選択してください。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        try:
-            from_entity_id = int(from_entity_id)
-            to_entity_id = int(to_entity_id)
-        except ValueError:
-            flash('無効なエンティティIDです。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        if from_entity_id == to_entity_id:
-            flash('開始エンティティと終了エンティティは異なるものを選択してください。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        # エンティティクラスの存在確認
-        if not EntityMetaRepository.get_by_id(from_entity_id) or not EntityMetaRepository.get_by_id(to_entity_id):
-            flash('指定されたエンティティタイプが存在しません。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        # 重複チェック
-        if RelationMetaRepository.exists_by_title_and_entities(title, from_entity_id, to_entity_id):
-            flash(f'同じ組み合わせで「{title}」は既に登録されています。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        # リレーションクラスを作成
-        relation_class_id = RelationMetaRepository.create(title, from_entity_id, to_entity_id)
-        
-        flash(f'リレーション「{title}」を追加しました。', 'success')
-        return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-    except Exception as e:
-        print(f'Error creating relation: {e}')
-        flash('リレーションの追加中にエラーが発生しました。', 'error')
-        return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-
-@app.route('/classes/<int:entity_meta_id>/relations/update', methods=['POST'])
-@require_login
-def update_relation(entity_meta_id):
-    """リレーション更新"""
-    try:
-        # エンティティメタの存在確認
-        entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
-        if not entity_meta:
-            flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('classes_index'))
-        
-        relation_id = request.form.get('relation_id')
-        title = request.form.get('title', '').strip()
-        from_entity_id = request.form.get('from_entity_id', '').strip()
-        to_entity_id = request.form.get('to_entity_id', '').strip()
-        
-        if not relation_id:
-            flash('リレーションIDが指定されていません。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        try:
-            relation_id = int(relation_id)
-            from_entity_id = int(from_entity_id)
-            to_entity_id = int(to_entity_id)
-        except ValueError:
-            flash('無効なIDです。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        # リレーションの存在確認
-        existing_relation = RelationMetaRepository.get_by_id(relation_id)
-        if not existing_relation:
-            flash('指定されたリレーションが見つかりません。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        # バリデーション
-        if not title:
-            flash('リレーション名を入力してください。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        if len(title) > 100:
-            flash('リレーション名は100文字以内で入力してください。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        if from_entity_id == to_entity_id:
-            flash('開始エンティティと終了エンティティは異なるものを選択してください。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        # エンティティクラスの存在確認
-        if not EntityMetaRepository.get_by_id(from_entity_id) or not EntityMetaRepository.get_by_id(to_entity_id):
-            flash('指定されたエンティティタイプが存在しません。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        # 重複チェック（自分以外）
-        if RelationMetaRepository.exists_by_title_and_entities(title, from_entity_id, to_entity_id, relation_id):
-            flash(f'同じ組み合わせで「{title}」は既に登録されています。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        # リレーションクラスを更新
-        success = RelationMetaRepository.update(relation_id, title, from_entity_id, to_entity_id)
-        
-        if success:
-            flash(f'リレーション「{title}」を更新しました。', 'success')
-        else:
-            flash('リレーションの更新に失敗しました。', 'error')
-        
-        return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-    except Exception as e:
-        print(f'Error updating relation: {e}')
-        flash('リレーションの更新中にエラーが発生しました。', 'error')
-        return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-
-@app.route('/classes/<int:entity_meta_id>/relations/delete', methods=['POST'])
-@require_login
-def delete_relation(entity_meta_id):
-    """リレーション削除"""
-    try:
-        # エンティティメタの存在確認
-        entity_meta = EntityMetaRepository.get_by_id(entity_meta_id)
-        if not entity_meta:
-            flash('指定されたエンティティタイプが見つかりません。', 'error')
-            return redirect(url_for('classes_index'))
-        
-        relation_id = request.form.get('relation_id')
-        
-        if not relation_id:
-            flash('リレーションIDが指定されていません。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        try:
-            relation_id = int(relation_id)
-        except ValueError:
-            flash('無効なリレーションIDです。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        # リレーションの存在確認
-        existing_relation = RelationMetaRepository.get_by_id(relation_id)
-        if not existing_relation:
-            flash('指定されたリレーションが見つかりません。', 'error')
-            return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-        # リレーションメタを削除
-        success = RelationMetaRepository.delete(relation_id)
-        
-        if success:
-            flash(f'リレーション「{existing_relation["title"]}」を削除しました。', 'success')
-        else:
-            flash('リレーションの削除に失敗しました。', 'error')
-        
-        return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-        
-    except Exception as e:
-        print(f'Error deleting relation: {e}')
-        flash('リレーションの削除中にエラーが発生しました。', 'error')
-        return redirect(url_for('manage_relations', entity_meta_id=entity_meta_id))
-
 @app.route('/instances')
 @require_login
 def instances_list():
     """インスタンス一覧ページ"""
     user = session.get('user')
     entity_type = request.args.get('type')
+    view_date = get_view_date()
+    
+    # 日付を文字列形式に変換（SQLite用）
+    view_date_str = view_date.strftime('%Y-%m-%d')
     
     try:
         if entity_type:
             # entity_typeを整数に変換
             try:
                 entity_type_id = int(entity_type)
-                entities = EntityRepository.get_by_type(entity_type_id)
+                entities = EntityRepository.get_by_type_at_date(entity_type_id, view_date_str)
             except (ValueError, TypeError):
                 flash('無効なエンティティタイプです', 'error')
                 return redirect(url_for('instances_list'))
         else:
-            entities = EntityRepository.get_all()
+            entities = EntityRepository.get_all_at_date(view_date_str)
         
         entity_types = EntityMetaRepository.get_all()
         
@@ -622,6 +435,7 @@ def instances_list():
                              entities=entities, 
                              entity_types=entity_types,
                              current_type=entity_type,
+                             view_date=view_date,
                              user=user, 
                              provider_name=PROVIDER_NAME)
     
@@ -631,6 +445,7 @@ def instances_list():
                              entities=[], 
                              entity_types=[],
                              current_type=entity_type,
+                             view_date=view_date,
                              user=user, 
                              provider_name=PROVIDER_NAME)
 
@@ -639,6 +454,10 @@ def instances_list():
 def instance_detail(entity_id):
     """インスタンス詳細ページ"""
     user = session.get('user')
+    view_date = get_view_date()
+    
+    # 日付を文字列形式に変換（SQLite用）
+    view_date_str = view_date.strftime('%Y-%m-%d')
     
     try:
         # エンティティ基本情報
@@ -648,18 +467,24 @@ def instance_detail(entity_id):
             flash('エンティティが見つかりません', 'error')
             return redirect(url_for('instances_list'))
         
-        # 属性情報
-        attributes = AttributeRepository.get_by_entity_id(entity_id)
+        # 属性情報（指定日付時点での最新値）
+        attributes = AttributeRepository.get_by_entity_id_at_date(entity_id, view_date_str)
         
-        # リレーション情報
-        relations_from = RelationRepository.get_relations_from(entity_id)
-        relations_to = RelationRepository.get_relations_to(entity_id)
+        # 属性を通常の属性とリレーションに分類
+        regular_attributes = []
+        relation_attributes = []
+        
+        for attr in attributes:
+            if attr['data_type'] == 'ENTITY':
+                relation_attributes.append(attr)
+            else:
+                regular_attributes.append(attr)
         
         return render_template('instances/detail.html', 
                              entity=entity,
-                             attributes=attributes,
-                             relations_from=relations_from,
-                             relations_to=relations_to,
+                             attributes=regular_attributes,
+                             relations=relation_attributes,
+                             view_date=view_date,
                              user=user, 
                              provider_name=PROVIDER_NAME)
     
@@ -750,7 +575,16 @@ def create_instance():
         for attr_class in attribute_classes:
             attr_value = request.form.get(f'attr_{attr_class["identifier"]}', '').strip()
             if attr_value:  # 空でない場合のみ保存
-                AttributeRepository.create(attr_value, attr_class['identifier'], entity_id)
+                if attr_class['data_type'] == 'ENTITY':
+                    # ENTITY型の場合はエンティティIDを文字列として保存
+                    try:
+                        target_entity_id = int(attr_value)  # バリデーション用
+                        AttributeRepository.create(str(target_entity_id), attr_class['identifier'], entity_id)
+                    except ValueError:
+                        flash(f'属性「{attr_class["title"]}」の値が無効です。', 'warning')
+                else:
+                    # 通常の属性の場合
+                    AttributeRepository.create(attr_value, attr_class['identifier'], entity_id)
         
         flash(f'エンティティ「{title}」を作成しました。', 'success')
         return redirect(url_for('instance_detail', entity_id=entity_id))
@@ -765,6 +599,10 @@ def create_instance():
 def edit_instance(entity_id):
     """インスタンス編集フォーム"""
     user = session.get('user')
+    view_date = get_view_date()
+    
+    # 日付を文字列形式に変換（SQLite用）
+    view_date_str = view_date.strftime('%Y-%m-%d')
     
     try:
         # エンティティ基本情報
@@ -774,12 +612,24 @@ def edit_instance(entity_id):
             flash('エンティティが見つかりません', 'error')
             return redirect(url_for('instances_list'))
         
-        # 属性情報
-        attributes = AttributeRepository.get_by_entity_id(entity_id)
+        # 属性情報（指定日付時点での最新値）
+        attributes = AttributeRepository.get_by_entity_id_at_date(entity_id, view_date_str)
+        
+        # 属性を通常の属性とリレーションに分類
+        regular_attributes = []
+        relation_attributes = []
+        
+        for attr in attributes:
+            if attr['data_type'] == 'ENTITY':
+                relation_attributes.append(attr)
+            else:
+                regular_attributes.append(attr)
         
         return render_template('instances/edit.html', 
                              entity=entity,
-                             attributes=attributes,
+                             attributes=regular_attributes,
+                             relations=relation_attributes,
+                             view_date=view_date,
                              user=user, 
                              provider_name=PROVIDER_NAME)
     

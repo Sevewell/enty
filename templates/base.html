@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=1200">
     <title>{% block title %}Flask OIDC アプリ{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='date-selector.js') }}" defer></script>
 </head>
 <body>
     <nav class="navbar">
@@ -23,6 +24,16 @@
             </div>
         </div>
     </nav>
+
+    <!-- 日付時点指定UI -->
+    <div class="date-selector-container">
+        <div class="date-selector">
+            <label for="viewDate" class="date-label">データ参照時点:</label>
+            <input type="date" id="viewDate" name="viewDate" class="date-input" />
+            <button type="button" id="applyDate" class="btn btn-sm btn-primary">適用</button>
+            <button type="button" id="resetDate" class="btn btn-sm btn-secondary">現在</button>
+        </div>
+    </div>
 
     <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}

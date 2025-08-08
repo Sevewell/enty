@@ -111,6 +111,19 @@ class EntityRepository:
             """).fetchall()
     
     @staticmethod
+    def get_all_at_date(view_date: str) -> List[sqlite3.Row]:
+        """指定日付時点での全てのエンティティインスタンスを取得"""
+        with get_connection() as conn:
+            return conn.execute("""
+                SELECT e.identifier, e.title, e.date_in, e.date_out, ec.title as type_name
+                FROM entity_instance e
+                JOIN entity_class ec ON e.class_id = ec.identifier
+                WHERE (e.date_in IS NULL OR e.date_in <= ?)
+                  AND (e.date_out IS NULL OR e.date_out > ?)
+                ORDER BY e.date_in DESC
+            """, (view_date, view_date)).fetchall()
+    
+    @staticmethod
     def get_by_type(entity_type_id: int) -> List[sqlite3.Row]:
         """特定のタイプのエンティティインスタンスを取得"""
         with get_connection() as conn:
@@ -121,6 +134,20 @@ class EntityRepository:
                 WHERE ec.identifier = ?
                 ORDER BY e.date_in DESC
             """, (entity_type_id,)).fetchall()
+    
+    @staticmethod
+    def get_by_type_at_date(entity_type_id: int, view_date: str) -> List[sqlite3.Row]:
+        """指定日付時点での特定タイプのエンティティインスタンスを取得"""
+        with get_connection() as conn:
+            return conn.execute("""
+                SELECT e.identifier, e.title, e.date_in, e.date_out, ec.title as type_name
+                FROM entity_instance e
+                JOIN entity_class ec ON e.class_id = ec.identifier
+                WHERE ec.identifier = ?
+                  AND (e.date_in IS NULL OR e.date_in <= ?)
+                  AND (e.date_out IS NULL OR e.date_out > ?)
+                ORDER BY e.date_in DESC
+            """, (entity_type_id, view_date, view_date)).fetchall()
     
     @staticmethod
     def get_by_id(entity_id: int) -> Optional[sqlite3.Row]:
@@ -193,15 +220,73 @@ class AttributeRepository:
     
     @staticmethod
     def get_by_entity_id(entity_id: int) -> List[sqlite3.Row]:
-        """エンティティIDで属性インスタンスを取得"""
+        """エンティティIDで属性インスタンスを取得（現在時点）"""
         with get_connection() as conn:
             return conn.execute("""
-                SELECT a.*, ac.title as attr_name, ac.data_type, ac.order_display
+                SELECT 
+                    a.identifier,
+                    a.title,
+                    a.class_id,
+                    a.entity_id,
+                    a.date_event,
+                    ac.title as attr_name,
+                    ac.data_type,
+                    ac.order_display,
+                    CASE 
+                        WHEN ac.data_type = 'ENTITY' AND a.title IS NOT NULL 
+                        THEN te.title
+                        ELSE NULL
+                    END as target_entity_title,
+                    CASE 
+                        WHEN ac.data_type = 'ENTITY' AND a.title IS NOT NULL 
+                        THEN CAST(a.title AS INTEGER)
+                        ELSE NULL
+                    END as target_entity_id
                 FROM attribute_instance a
                 JOIN attribute_class ac ON a.class_id = ac.identifier
+                LEFT JOIN entity_instance te ON (ac.data_type = 'ENTITY' AND CAST(a.title AS INTEGER) = te.identifier)
                 WHERE a.entity_id = ?
                 ORDER BY COALESCE(ac.order_display, ac.identifier)
             """, (entity_id,)).fetchall()
+    
+    @staticmethod
+    def get_by_entity_id_at_date(entity_id: int, view_date: str) -> List[sqlite3.Row]:
+        """エンティティIDで属性インスタンスを取得（指定日付時点での最新値）"""
+        with get_connection() as conn:
+            return conn.execute("""
+                SELECT 
+                    a.identifier,
+                    a.title,
+                    a.class_id,
+                    a.entity_id,
+                    a.date_event,
+                    ac.title as attr_name,
+                    ac.data_type,
+                    ac.order_display,
+                    CASE 
+                        WHEN ac.data_type = 'ENTITY' AND a.title IS NOT NULL 
+                        THEN te.title
+                        ELSE NULL
+                    END as target_entity_title,
+                    CASE 
+                        WHEN ac.data_type = 'ENTITY' AND a.title IS NOT NULL 
+                        THEN CAST(a.title AS INTEGER)
+                        ELSE NULL
+                    END as target_entity_id
+                FROM attribute_instance a
+                JOIN attribute_class ac ON a.class_id = ac.identifier
+                LEFT JOIN entity_instance te ON (ac.data_type = 'ENTITY' AND CAST(a.title AS INTEGER) = te.identifier)
+                WHERE a.entity_id = ?
+                  AND (a.date_event IS NULL OR a.date_event <= ?)
+                  AND a.identifier = (
+                    SELECT MAX(a2.identifier)
+                    FROM attribute_instance a2
+                    WHERE a2.entity_id = a.entity_id
+                      AND a2.class_id = a.class_id
+                      AND (a2.date_event IS NULL OR a2.date_event <= ?)
+                  )
+                ORDER BY COALESCE(ac.order_display, ac.identifier)
+            """, (entity_id, view_date, view_date)).fetchall()
     
     @staticmethod
     def create(title: str, class_id: int, entity_id: int, date_event: str = None) -> int:
@@ -251,54 +336,6 @@ class AttributeRepository:
             conn.commit()
             return cursor.rowcount > 0
 
-class RelationRepository:
-    """リレーションインスタンスのデータアクセス（旧Relation）"""
-    
-    @staticmethod
-    def get_relations_from(entity_id: int) -> List[sqlite3.Row]:
-        """指定エンティティから出るリレーションを取得"""
-        with get_connection() as conn:
-            return conn.execute("""
-                SELECT r.*, e.title as to_entity_title, rc.title as relation_name
-                FROM relation_instance r
-                JOIN entity_instance e ON r.entity_to = e.identifier
-                JOIN relation_class rc ON r.class_id = rc.identifier
-                WHERE r.entity_from = ?
-            """, (entity_id,)).fetchall()
-    
-    @staticmethod
-    def get_relations_to(entity_id: int) -> List[sqlite3.Row]:
-        """指定エンティティに入るリレーションを取得"""
-        with get_connection() as conn:
-            return conn.execute("""
-                SELECT r.*, e.title as from_entity_title, rc.title as relation_name
-                FROM relation_instance r
-                JOIN entity_instance e ON r.entity_from = e.identifier
-                JOIN relation_class rc ON r.class_id = rc.identifier
-                WHERE r.entity_to = ?
-            """, (entity_id,)).fetchall()
-    
-    @staticmethod
-    def create(class_id: int, entity_from: int, entity_to: int, date_event: str = None) -> int:
-        """新しいリレーションインスタンスを作成"""
-        with get_connection() as conn:
-            cursor = conn.execute("""
-                INSERT INTO relation_instance (class_id, entity_from, entity_to, date_event)
-                VALUES (?, ?, ?, ?)
-            """, (class_id, entity_from, entity_to, date_event))
-            conn.commit()
-            return cursor.lastrowid
-    
-    @staticmethod
-    def delete(relation_id: int) -> bool:
-        """リレーションインスタンスを削除"""
-        with get_connection() as conn:
-            cursor = conn.execute("""
-                DELETE FROM relation_instance WHERE identifier = ?
-            """, (relation_id,))
-            conn.commit()
-            return cursor.rowcount > 0
-
 class AttributeMetaRepository:
     """属性クラスのデータアクセス（旧AttributeMeta）"""
     
@@ -307,10 +344,15 @@ class AttributeMetaRepository:
         """エンティティクラスIDで属性クラスを取得"""
         with get_connection() as conn:
             return conn.execute("""
-                SELECT identifier, title, entity_id, data_type, order_display
-                FROM attribute_class
-                WHERE entity_id = ?
-                ORDER BY COALESCE(order_display, identifier)
+                SELECT 
+                    ac.identifier, 
+                    ac.title, 
+                    ac.entity_id, 
+                    ac.data_type, 
+                    ac.order_display
+                FROM attribute_class ac
+                WHERE ac.entity_id = ?
+                ORDER BY COALESCE(ac.order_display, ac.identifier)
             """, (entity_class_id,)).fetchall()
     
     @staticmethod
@@ -318,9 +360,14 @@ class AttributeMetaRepository:
         """IDで属性クラスを取得"""
         with get_connection() as conn:
             return conn.execute("""
-                SELECT identifier, title, entity_id, data_type, order_display
-                FROM attribute_class
-                WHERE identifier = ?
+                SELECT 
+                    ac.identifier, 
+                    ac.title, 
+                    ac.entity_id, 
+                    ac.data_type, 
+                    ac.order_display
+                FROM attribute_class ac
+                WHERE ac.identifier = ?
             """, (attribute_class_id,)).fetchone()
     
     @staticmethod
@@ -388,123 +435,6 @@ class AttributeMetaRepository:
                     SELECT COUNT(*) FROM attribute_class 
                     WHERE title = ? AND entity_id = ?
                 """, (title, entity_id))
-            return cursor.fetchone()[0] > 0
-
-class RelationMetaRepository:
-    """リレーションクラスのデータアクセス（旧RelationMeta）"""
-    
-    @staticmethod
-    def get_all() -> List[sqlite3.Row]:
-        """全てのリレーションクラスを取得"""
-        with get_connection() as conn:
-            return conn.execute("""
-                SELECT identifier, title, from_entity_id, to_entity_id
-                FROM relation_class
-                ORDER BY title
-            """).fetchall()
-    
-    @staticmethod
-    def get_by_entity_meta_id(entity_class_id: int) -> List[sqlite3.Row]:
-        """エンティティクラスIDでリレーションクラスを取得（FROMまたはTOで絡んでいるもの）"""
-        with get_connection() as conn:
-            return conn.execute("""
-                SELECT 
-                    rc.identifier, 
-                    rc.title, 
-                    rc.from_entity_id, 
-                    rc.to_entity_id,
-                    ec_from.title as from_entity_name,
-                    ec_to.title as to_entity_name
-                FROM relation_class rc
-                JOIN entity_class ec_from ON rc.from_entity_id = ec_from.identifier
-                JOIN entity_class ec_to ON rc.to_entity_id = ec_to.identifier
-                WHERE rc.from_entity_id = ? OR rc.to_entity_id = ?
-                ORDER BY rc.title
-            """, (entity_class_id, entity_class_id)).fetchall()
-    
-    @staticmethod
-    def get_by_id(relation_class_id: int) -> Optional[sqlite3.Row]:
-        """IDでリレーションクラスを取得"""
-        with get_connection() as conn:
-            return conn.execute("""
-                SELECT 
-                    rc.identifier, 
-                    rc.title, 
-                    rc.from_entity_id, 
-                    rc.to_entity_id,
-                    ec_from.title as from_entity_name,
-                    ec_to.title as to_entity_name
-                FROM relation_class rc
-                JOIN entity_class ec_from ON rc.from_entity_id = ec_from.identifier
-                JOIN entity_class ec_to ON rc.to_entity_id = ec_to.identifier
-                WHERE rc.identifier = ?
-            """, (relation_class_id,)).fetchone()
-    
-    @staticmethod
-    def create(title: str, from_entity_id: int, to_entity_id: int) -> int:
-        """新しいリレーションクラスを作成"""
-        with get_connection() as conn:
-            cursor = conn.execute("""
-                INSERT INTO relation_class (title, from_entity_id, to_entity_id)
-                VALUES (?, ?, ?)
-            """, (title, from_entity_id, to_entity_id))
-            conn.commit()
-            return cursor.lastrowid
-    
-    @staticmethod
-    def update(relation_class_id: int, title: str = None, from_entity_id: int = None, to_entity_id: int = None) -> bool:
-        """リレーションクラスを更新"""
-        updates = []
-        params = []
-        
-        if title is not None:
-            updates.append("title = ?")
-            params.append(title)
-        if from_entity_id is not None:
-            updates.append("from_entity_id = ?")
-            params.append(from_entity_id)
-        if to_entity_id is not None:
-            updates.append("to_entity_id = ?")
-            params.append(to_entity_id)
-        
-        if not updates:
-            return False
-        
-        params.append(relation_class_id)
-        
-        with get_connection() as conn:
-            cursor = conn.execute(f"""
-                UPDATE relation_class
-                SET {', '.join(updates)}
-                WHERE identifier = ?
-            """, params)
-            conn.commit()
-            return cursor.rowcount > 0
-    
-    @staticmethod
-    def delete(relation_class_id: int) -> bool:
-        """リレーションクラスを削除"""
-        with get_connection() as conn:
-            cursor = conn.execute("""
-                DELETE FROM relation_class WHERE identifier = ?
-            """, (relation_class_id,))
-            conn.commit()
-            return cursor.rowcount > 0
-    
-    @staticmethod
-    def exists_by_title_and_entities(title: str, from_entity_id: int, to_entity_id: int, exclude_id: int = None) -> bool:
-        """同じタイトルとエンティティ組み合わせのリレーションクラスが存在するかチェック"""
-        with get_connection() as conn:
-            if exclude_id:
-                cursor = conn.execute("""
-                    SELECT COUNT(*) FROM relation_class 
-                    WHERE title = ? AND from_entity_id = ? AND to_entity_id = ? AND identifier != ?
-                """, (title, from_entity_id, to_entity_id, exclude_id))
-            else:
-                cursor = conn.execute("""
-                    SELECT COUNT(*) FROM relation_class 
-                    WHERE title = ? AND from_entity_id = ? AND to_entity_id = ?
-                """, (title, from_entity_id, to_entity_id))
             return cursor.fetchone()[0] > 0
 
 # 汎用的なデータベースハンドラー（既存コードとの互換性のため）

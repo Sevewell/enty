@@ -9,7 +9,8 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h1>📦 エンティティインスタンス一覧</h1>
-                    <p class="text-muted mb-0">定義されたエンティティクラスから作成された具体的なインスタンスの一覧です。</p>
+                    <p class="text-muted mb-1">定義されたエンティティクラスから作成された具体的なインスタンスの一覧です。</p>
+                    <p class="text-info mb-0"><strong>📅 {{ view_date }} 時点</strong>のデータを表示中</p>
                 </div>
                 <div class="d-flex gap-2">
                     <a href="{{ url_for('create_instance_form') }}" class="btn btn-success">
@@ -78,7 +79,7 @@
                         {% else %}
                             全インスタンス
                         {% endif %}
-                        ({{ entities|length }}件)
+                        ({{ entities|length }}件) - {{ view_date }} 時点
                     </h5>
                 </div>
                 <div class="card-body p-0">
@@ -91,7 +92,6 @@
                                     <th>インスタンス名</th>
                                     <th>クラス</th>
                                     <th>登録日</th>
-                                    <th>状態</th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
@@ -109,13 +109,6 @@
                                     </td>
                                     <td>
                                         <small class="text-muted">{{ entity.date_in }}</small>
-                                    </td>
-                                    <td>
-                                        {% if entity.date_out %}
-                                            <span class="badge bg-danger">無効</span>
-                                        {% else %}
-                                            <span class="badge bg-success">有効</span>
-                                        {% endif %}
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">

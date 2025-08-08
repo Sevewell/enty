@@ -6,6 +6,9 @@
 <div class="container">
     <div class="header">
         <h1>エンティティ編集: {{ entity.title }}</h1>
+        {% if view_date %}
+        <p class="text-muted">📅 {{ view_date.strftime('%Y年%m月%d日') }}時点の属性値を表示中</p>
+        {% endif %}
         <div class="actions">
             <a href="{{ url_for('instance_detail', entity_id=entity.identifier) }}" class="btn btn-secondary">← 戻る</a>
         </div>

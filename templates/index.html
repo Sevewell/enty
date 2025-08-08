@@ -10,6 +10,7 @@
             
             {% if user %}
                 <p>こんにちは、{{ user.name }}さん！</p>
+                <p class="text-muted">現在のデータ参照時点: {{ view_date }}</p>
                 <div class="d-flex gap-3 justify-content-center">
                     <a class="btn btn-primary btn-lg" href="{{ url_for('profile') }}" role="button">プロフィールを見る</a>
                     <a class="btn btn-success btn-lg" href="{{ url_for('classes_index') }}" role="button">クラス管理</a>
@@ -18,6 +19,7 @@
                 </div>
             {% else %}
                 <p>ログインしてアプリケーションを利用してください。</p>
+                <p class="text-muted">現在のデータ参照時点: {{ view_date }}</p>
                 <a class="btn btn-primary btn-lg" href="{{ url_for('login') }}" role="button">OIDCプロバイダーでログイン</a>
             {% endif %}
         </div>
