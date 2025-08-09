@@ -27,15 +27,15 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="date_in">登録日</label>
+                    <label for="date_in">有効日</label>
                     <input type="date" id="date_in" name="date_in" value="{{ entity.date_in or '' }}" class="form-control">
-                    <small class="form-text">エンティティが登録された日付</small>
+                    <small class="form-text">エンティティが有効になった日付</small>
                 </div>
 
                 <div class="form-group">
-                    <label for="date_out">削除日</label>
+                    <label for="date_out">無効日</label>
                     <input type="date" id="date_out" name="date_out" value="{{ entity.date_out or '' }}" class="form-control">
-                    <small class="form-text">エンティティが削除された日付（必要に応じて設定）</small>
+                    <small class="form-text">エンティティが無効になった日付（論理削除用）</small>
                 </div>
 
                 <div class="form-group">
@@ -53,102 +53,336 @@
     </div>
 
     <!-- 属性値編集セクション -->
-    {% if attributes %}
+    {% if attributes_by_class %}
     <div class="card">
         <div class="card-header">
-            <h3>属性値</h3>
+            <h3>属性値管理</h3>
         </div>
         <div class="card-body">
-            <p class="info-text">属性値を編集するには、各属性の編集ボタンをクリックしてください。</p>
-            <div class="attributes-list">
-                {% for attr in attributes %}
-                <div class="attribute-item">
-                    <div class="attribute-info">
-                        <strong>{{ attr.attr_name }}</strong>
-                        <span class="attribute-type">({{ attr.data_type }})</span>
-                        <div class="attribute-value">{{ attr.title or '(未設定)' }}</div>
-                    </div>
-                    <div class="attribute-actions">
-                        <button class="btn btn-sm btn-secondary" onclick="editAttribute({{ attr.identifier }}, '{{ attr.attr_name }}', '{{ attr.title or '' }}', '{{ attr.data_type }}')">編集</button>
-                    </div>
+            <p class="info-text">各属性の値を管理できます。同じ属性に複数の値を登録できます。無効日を設定すると論理削除されます。</p>
+            
+            {% for class_id, attr_data in attributes_by_class.items() %}
+            <div class="attribute-class-section">
+                <div class="attribute-class-header">
+                    <h4>{{ attr_data.class_info.title }} <span class="attribute-type">({{ attr_data.class_info.data_type }})</span></h4>
+                    <button class="btn btn-sm btn-success" onclick="addAttributeInstance({{ class_id }}, '{{ attr_data.class_info.title }}', '{{ attr_data.class_info.data_type }}')">+ 追加</button>
                 </div>
-                {% endfor %}
+                
+                {% if attr_data.instances %}
+                <div class="attribute-instances">
+                    {% for instance in attr_data.instances %}
+                    <div class="attribute-item">
+                        <div class="attribute-info">
+                            <div class="attribute-value">{{ instance.title or '(未設定)' }}</div>
+                            <div class="attribute-dates">
+                                <small class="text-muted">
+                                    有効日: {{ instance.date_in or '未設定' }}
+                                    {% if instance.date_out %}
+                                    | 無効日: {{ instance.date_out }}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="attribute-actions">
+                            <button class="btn btn-sm btn-primary" onclick="editAttribute({{ instance.identifier }}, '{{ attr_data.class_info.title }}', '{{ instance.title or '' }}', '{{ instance.date_in or '' }}', '{{ instance.date_out or '' }}', '{{ attr_data.class_info.data_type }}')">編集</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="no-instances">
+                    <p class="text-muted">この属性の値は登録されていません</p>
+                </div>
+                {% endif %}
             </div>
+            {% endfor %}
         </div>
     </div>
     {% endif %}
 </div>
 
-<!-- 属性編集モーダル -->
+<!-- 属性値追加モーダル -->
+<div id="attributeAddModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="addModalTitle">属性値追加</h3>
+            <button class="modal-close" onclick="closeAddModal()">&times;</button>
+        </div>
+        <form id="attributeAddForm" method="POST" action="{{ url_for('add_attribute_value', entity_id=entity.identifier) }}">
+            <div class="modal-body">
+                <input type="hidden" id="addAttributeClassId" name="attribute_class_id">
+                <input type="hidden" id="addDataType" name="data_type">
+                
+                <div class="form-group">
+                    <label for="addValue">値</label>
+                    <input type="text" id="addValue" name="title" class="form-control" required>
+                    <select id="addEntitySelect" name="entity_value" class="form-control" style="display: none;">
+                        <option value="">選択してください</option>
+                        <!-- エンティティ一覧は JavaScript で動的に読み込み -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="addDateIn">有効日</label>
+                    <input type="date" id="addDateIn" name="date_in" class="form-control">
+                    <small class="form-text">この属性値が有効になる日付</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="addDateOut">無効日</label>
+                    <input type="date" id="addDateOut" name="date_out" class="form-control">
+                    <small class="form-text">この属性値が無効になる日付（空欄で無期限）</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">追加</button>
+                <button type="button" class="btn btn-secondary" onclick="closeAddModal()">キャンセル</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 属性値編集モーダル -->
 <div id="attributeEditModal" class="modal" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 id="attributeModalTitle">属性値編集</h3>
-            <button class="modal-close" onclick="closeAttributeModal()">&times;</button>
+            <h3 id="editModalTitle">属性値編集</h3>
+            <button class="modal-close" onclick="closeEditModal()">&times;</button>
         </div>
-        <form id="attributeEditForm" method="POST" action="{{ url_for('update_attribute_value', entity_id=entity.identifier) }}">
+        <form id="attributeEditForm" method="POST" action="{{ url_for('edit_attribute_value', entity_id=entity.identifier) }}">
             <div class="modal-body">
-                <input type="hidden" id="attributeId" name="attribute_id">
+                <input type="hidden" id="editAttributeId" name="attribute_id">
+                <input type="hidden" id="editDataType" value="">
+                
+                <input type="hidden" id="editDataTypeField" name="data_type">
                 
                 <div class="form-group">
-                    <label for="attributeValue">値</label>
-                    <input type="text" id="attributeValue" name="attribute_value" class="form-control" required>
+                    <label for="editValue">値</label>
+                    <input type="text" id="editValue" name="title" class="form-control" required>
+                    <select id="editEntitySelect" name="entity_value" class="form-control" style="display: none;">
+                        <option value="">選択してください</option>
+                        <!-- エンティティ一覧は JavaScript で動的に読み込み -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editDateIn">有効日</label>
+                    <input type="date" id="editDateIn" name="date_in" class="form-control">
+                    <small class="form-text">この属性値が有効になる日付</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editDateOut">無効日</label>
+                    <input type="date" id="editDateOut" name="date_out" class="form-control">
+                    <small class="form-text">この属性値が無効になる日付（空欄で無期限、設定すると論理削除）</small>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="submit" class="btn btn-primary">更新</button>
-                <button type="button" class="btn btn-secondary" onclick="closeAttributeModal()">キャンセル</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">キャンセル</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-function editAttribute(attributeId, attributeName, currentValue, dataType) {
-    document.getElementById('attributeModalTitle').textContent = `${attributeName} の編集`;
-    document.getElementById('attributeId').value = attributeId;
-    document.getElementById('attributeValue').value = currentValue;
+// 属性インスタンス追加モーダルを開く
+function addAttributeInstance(attributeClassId, attributeName, dataType) {
+    document.getElementById('addModalTitle').textContent = `${attributeName} の追加`;
+    document.getElementById('addAttributeClassId').value = attributeClassId;
+    document.getElementById('addDataType').value = dataType;
     
-    // データ型に応じて入力フィールドを調整
-    const valueInput = document.getElementById('attributeValue');
-    if (dataType === 'date') {
-        valueInput.type = 'date';
-    } else if (dataType === 'number') {
-        valueInput.type = 'number';
+    // フォームをリセット
+    document.getElementById('addValue').value = '';
+    document.getElementById('addDateIn').value = '';
+    document.getElementById('addDateOut').value = '';
+    
+    const valueInput = document.getElementById('addValue');
+    const entitySelect = document.getElementById('addEntitySelect');
+    
+    if (dataType === 'ENTITY') {
+        // ENTITY型の場合はセレクトボックスを表示
+        valueInput.style.display = 'none';
+        valueInput.required = false;
+        entitySelect.style.display = 'block';
+        entitySelect.required = true;
+        entitySelect.value = '';
+        
+        // エンティティ一覧を読み込み
+        loadEntitiesForAdd();
     } else {
-        valueInput.type = 'text';
+        // 通常の属性の場合
+        valueInput.style.display = 'block';
+        valueInput.required = true;
+        entitySelect.style.display = 'none';
+        entitySelect.required = false;
+        
+        // データ型に応じて入力フィールドを調整
+        if (dataType === 'DATE') {
+            valueInput.type = 'date';
+        } else if (dataType === 'NUMBER') {
+            valueInput.type = 'number';
+        } else {
+            valueInput.type = 'text';
+        }
+    }
+    
+    document.getElementById('attributeAddModal').style.display = 'flex';
+}
+
+function editAttribute(attributeId, attributeName, currentValue, currentDateIn, currentDateOut, dataType) {
+    document.getElementById('editModalTitle').textContent = `${attributeName} の編集`;
+    document.getElementById('editAttributeId').value = attributeId;
+    document.getElementById('editDateIn').value = currentDateIn;
+    document.getElementById('editDateOut').value = currentDateOut;
+    document.getElementById('editDataType').value = dataType;
+    document.getElementById('editDataTypeField').value = dataType;
+    
+    const valueInput = document.getElementById('editValue');
+    const entitySelect = document.getElementById('editEntitySelect');
+    
+    if (dataType === 'ENTITY') {
+        // ENTITY型の場合はセレクトボックスを表示
+        valueInput.style.display = 'none';
+        valueInput.required = false;
+        entitySelect.style.display = 'block';
+        entitySelect.required = true;
+        entitySelect.value = currentValue;
+        
+        // エンティティ一覧を読み込み
+        loadEntities();
+    } else {
+        // 通常の属性の場合
+        valueInput.style.display = 'block';
+        valueInput.required = true;
+        entitySelect.style.display = 'none';
+        entitySelect.required = false;
+        valueInput.value = currentValue;
+        
+        // データ型に応じて入力フィールドを調整
+        if (dataType === 'DATE') {
+            valueInput.type = 'date';
+        } else if (dataType === 'NUMBER') {
+            valueInput.type = 'number';
+        } else {
+            valueInput.type = 'text';
+        }
     }
     
     document.getElementById('attributeEditModal').style.display = 'flex';
 }
 
-function closeAttributeModal() {
+// 追加用エンティティ一覧読み込み
+async function loadEntitiesForAdd() {
+    try {
+        const response = await fetch('{{ url_for("get_entities_json") }}');
+        const entities = await response.json();
+        
+        const select = document.getElementById('addEntitySelect');
+        // 選択オプション以外をクリア
+        while (select.children.length > 1) {
+            select.removeChild(select.lastChild);
+        }
+        
+        // エンティティを追加
+        entities.forEach(entity => {
+            const option = document.createElement('option');
+            option.value = entity.identifier;
+            option.textContent = `${entity.title} (${entity.type_name})`;
+            select.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading entities:', error);
+    }
+}
+
+// 編集用エンティティ一覧読み込み
+async function loadEntities() {
+    try {
+        const response = await fetch('{{ url_for("get_entities_json") }}');
+        const entities = await response.json();
+        
+        const select = document.getElementById('editEntitySelect');
+        // 選択オプション以外をクリア
+        while (select.children.length > 1) {
+            select.removeChild(select.lastChild);
+        }
+        
+        // エンティティを追加
+        entities.forEach(entity => {
+            const option = document.createElement('option');
+            option.value = entity.identifier;
+            option.textContent = `${entity.title} (${entity.type_name})`;
+            select.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading entities:', error);
+    }
+}
+
+// モーダルを閉じる関数
+function closeAddModal() {
+    document.getElementById('attributeAddModal').style.display = 'none';
+}
+
+function closeEditModal() {
     document.getElementById('attributeEditModal').style.display = 'none';
 }
 
 // モーダル外クリックで閉じる
-document.getElementById('attributeEditModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeAttributeModal();
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'attributeAddModal') {
+        closeAddModal();
+    } else if (e.target.id === 'attributeEditModal') {
+        closeEditModal();
     }
 });
 </script>
 
 <style>
-.attributes-list {
+.attribute-class-section {
+    margin-bottom: 32px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.attribute-class-header {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.attribute-class-header h4 {
+    margin: 0;
+    font-size: 1.1em;
+    color: #333;
+}
+
+.attribute-instances {
+    padding: 0;
 }
 
 .attribute-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    background-color: #f9f9f9;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    background-color: white;
+}
+
+.attribute-item:last-child {
+    border-bottom: none;
+}
+
+.attribute-item:hover {
+    background-color: #f8f9fa;
 }
 
 .attribute-info {
@@ -165,10 +399,75 @@ document.getElementById('attributeEditModal').addEventListener('click', function
     margin-top: 4px;
     color: #333;
     font-family: monospace;
+    font-size: 1em;
+}
+
+.attribute-dates {
+    margin-top: 4px;
 }
 
 .attribute-actions {
     margin-left: 16px;
+    display: flex;
+    gap: 8px;
+}
+
+.no-instances {
+    padding: 20px;
+    text-align: center;
+    background-color: #f8f9fa;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    display: inline-block;
+    transition: background-color 0.2s;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #1e7e34;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #bd2130;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
 }
 
 .modal {
@@ -230,6 +529,28 @@ document.getElementById('attributeEditModal').addEventListener('click', function
     justify-content: flex-end;
 }
 
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-text {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #666;
+}
+
+.text-muted {
+    color: #6c757d;
+}
+
 .info-text {
     color: #666;
     margin-bottom: 16px;
@@ -239,6 +560,21 @@ document.getElementById('attributeEditModal').addEventListener('click', function
     padding: 8px 0;
     font-weight: 500;
     color: #333;
+}
+
+.form-control, select.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.form-control:focus, select.form-control:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 </style>
 {% endblock %}

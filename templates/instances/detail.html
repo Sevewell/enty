@@ -75,12 +75,12 @@
                         <td><span class="badge bg-secondary">{{ entity.type_name }}</span></td>
                     </tr>
                     <tr>
-                        <th>登録日:</th>
+                        <th>有効日:</th>
                         <td>{{ entity.date_in }}</td>
                     </tr>
                     {% if entity.date_out %}
                     <tr>
-                        <th>無効化日:</th>
+                        <th>無効日:</th>
                         <td><span class="text-danger">{{ entity.date_out }}</span></td>
                     </tr>
                     {% endif %}
@@ -89,11 +89,14 @@
         </div>
     </div>
     
-    <!-- 属性情報 -->
+    <!-- 属性情報（統合） -->
     <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">🏷️ 属性情報</h5>
+                {% if view_date %}
+                <small class="text-muted">📅 {{ view_date.strftime('%Y年%m月%d日') }}時点</small>
+                {% endif %}
             </div>
             <div class="card-body">
                 {% if attributes %}
@@ -102,15 +105,22 @@
                     <tr>
                         <th width="120">{{ attr.attr_name }}:</th>
                         <td>
-                            {% if attr.data_type == 'DATE' %}
+                            {% if attr.data_type == 'ENTITY' %}
+                                <!-- エンティティ型（リレーション）の場合 -->
+                                {% if attr.target_entity_title %}
+                                    <a href="{{ url_for('instance_detail', entity_id=attr.target_entity_id) }}" class="text-decoration-none">
+                                        🔗 {{ attr.target_entity_title }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">(参照先なし)</span>
+                                {% endif %}
+                            {% elif attr.data_type == 'DATE' %}
                                 <span class="text-info">📅 {{ attr.title }}</span>
-                            {% elif attr.data_type == 'EMAIL' %}
-                                <a href="mailto:{{ attr.title }}">✉️ {{ attr.title }}</a>
                             {% else %}
                                 {{ attr.title }}
                             {% endif %}
-                            {% if attr.date_event %}
-                            <small class="text-muted d-block">更新: {{ attr.date_event }}</small>
+                            {% if attr.date_in %}
+                            <small class="text-muted d-block">有効日: {{ attr.date_in }}</small>
                             {% endif %}
                         </td>
                     </tr>
@@ -124,59 +134,5 @@
             </div>
         </div>
     </div>
-</div>
-
-<!-- リレーション情報 -->
-<div class="row">
-    {% if relations %}
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">🔗 リレーション</h5>
-                {% if view_date %}
-                <small class="text-muted">📅 {{ view_date.strftime('%Y年%m月%d日') }}時点</small>
-                {% endif %}
-            </div>
-            <div class="card-body">
-                <table class="table table-borderless table-sm">
-                    {% for rel in relations %}
-                    <tr>
-                        <th width="120">{{ rel.attr_name }}:</th>
-                        <td>
-                            {% if rel.target_entity_title %}
-                                <a href="{{ url_for('instance_detail', entity_id=rel.target_entity_id) }}" class="text-decoration-none">
-                                    🔗 {{ rel.target_entity_title }}
-                                </a>
-                            {% else %}
-                                <span class="text-muted">(参照先なし)</span>
-                            {% endif %}
-                            {% if rel.date_event %}
-                            <small class="text-muted d-block">更新: {{ rel.date_event }}</small>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-    
-    {% if not relations %}
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">🔗 リレーション情報</h5>
-                {% if view_date %}
-                <small class="text-muted">📅 {{ view_date.strftime('%Y年%m月%d日') }}時点</small>
-                {% endif %}
-            </div>
-            <div class="card-body text-center text-muted py-4">
-                <div style="font-size: 2rem;">🔗</div>
-                <p>このエンティティにはリレーションがありません</p>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

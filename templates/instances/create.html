@@ -58,14 +58,14 @@
                             <div class="row">
                                 <div class="col-6">
                                     <label for="date_in" class="form-label">
-                                        <strong>開始日</strong>
+                                        <strong>有効日</strong>
                                     </label>
                                     <input type="date" class="form-control" id="date_in" name="date_in">
                                     <div class="form-text">インスタンスの有効開始日（任意）</div>
                                 </div>
                                 <div class="col-6">
                                     <label for="date_out" class="form-label">
-                                        <strong>終了日</strong>
+                                        <strong>無効日</strong>
                                     </label>
                                     <input type="date" class="form-control" id="date_out" name="date_out">
                                     <div class="form-text">インスタンスの有効終了日（任意）</div>
@@ -85,36 +85,27 @@
                                             {% if attr_meta.data_type == 'required' %}<span class="text-danger">*</span>{% endif %}
                                         </label>
                                         
-                                        {% if attr_meta.data_type == 'text' or attr_meta.data_type == 'TEXT' %}
+                                        {% if attr_meta.data_type == 'TEXT' %}
                                             <input type="text" class="form-control" 
                                                    id="attr_{{ attr_meta.identifier }}" 
                                                    name="attr_{{ attr_meta.identifier }}" 
                                                    placeholder="テキストを入力してください">
-                                        {% elif attr_meta.data_type == 'number' %}
+                                        {% elif attr_meta.data_type == 'NUMBER' %}
                                             <input type="number" class="form-control" 
                                                    id="attr_{{ attr_meta.identifier }}" 
                                                    name="attr_{{ attr_meta.identifier }}" 
                                                    placeholder="数値を入力してください">
-                                        {% elif attr_meta.data_type == 'date' %}
+                                        {% elif attr_meta.data_type == 'DATE' %}
                                             <input type="date" class="form-control" 
                                                    id="attr_{{ attr_meta.identifier }}" 
                                                    name="attr_{{ attr_meta.identifier }}">
-                                        {% elif attr_meta.data_type == 'email' %}
-                                            <input type="email" class="form-control" 
-                                                   id="attr_{{ attr_meta.identifier }}" 
-                                                   name="attr_{{ attr_meta.identifier }}" 
-                                                   placeholder="メールアドレスを入力してください">
-                                        {% elif attr_meta.data_type == 'url' %}
-                                            <input type="url" class="form-control" 
-                                                   id="attr_{{ attr_meta.identifier }}" 
-                                                   name="attr_{{ attr_meta.identifier }}" 
-                                                   placeholder="URLを入力してください">
-                                        {% elif attr_meta.data_type == 'textarea' %}
-                                            <textarea class="form-control" 
-                                                      id="attr_{{ attr_meta.identifier }}" 
-                                                      name="attr_{{ attr_meta.identifier }}" 
-                                                      rows="3" 
-                                                      placeholder="詳細な内容を入力してください"></textarea>
+                                        {% elif attr_meta.data_type == 'ENTITY' %}
+                                            <select class="form-control entity-select" 
+                                                    id="attr_{{ attr_meta.identifier }}" 
+                                                    name="attr_{{ attr_meta.identifier }}">
+                                                <option value="">エンティティを選択してください</option>
+                                                <!-- エンティティ一覧は JavaScript で動的に読み込み -->
+                                            </select>
                                         {% else %}
                                             <input type="text" class="form-control" 
                                                    id="attr_{{ attr_meta.identifier }}" 
@@ -177,7 +168,7 @@
                     <div class="mb-0">
                         <h6 class="text-primary">日付</h6>
                         <p class="text-muted text-small">
-                            開始日・終了日は管理用です。インスタンスの有効期間を設定できます。
+                            有効日・無効日は管理用です。インスタンスの有効期間を設定できます。
                         </p>
                     </div>
                 </div>
@@ -217,6 +208,39 @@ function loadAttributeForm() {
     currentUrl.searchParams.set('type', classId);
     window.location.href = currentUrl.toString();
 }
+
+// エンティティ一覧を読み込む関数
+async function loadEntities() {
+    try {
+        const response = await fetch('/api/entities');
+        const entities = await response.json();
+        
+        // 全てのENTITY型セレクトボックスにエンティティを追加
+        const entitySelects = document.querySelectorAll('.entity-select');
+        entitySelects.forEach(select => {
+            // 既存のオプションをクリア（初期オプション以外）
+            while (select.children.length > 1) {
+                select.removeChild(select.lastChild);
+            }
+            
+            // エンティティを追加
+            entities.forEach(entity => {
+                const option = document.createElement('option');
+                option.value = entity.identifier;
+                option.textContent = `${entity.title} (${entity.type_name})`;
+                select.appendChild(option);
+            });
+        });
+        
+    } catch (error) {
+        console.error('Error loading entities:', error);
+    }
+}
+
+// ページ読み込み時にエンティティ一覧を読み込み
+document.addEventListener('DOMContentLoaded', function() {
+    loadEntities();
+});
 
 // フォーム送信前のバリデーション
 document.getElementById('create-entity-form').addEventListener('submit', function(e) {

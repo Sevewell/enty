@@ -220,7 +220,7 @@ class AttributeRepository:
     
     @staticmethod
     def get_by_entity_id(entity_id: int) -> List[sqlite3.Row]:
-        """エンティティIDで属性インスタンスを取得（現在時点）"""
+        """エンティティIDで属性インスタンスを取得（現在時点で有効なもの）"""
         with get_connection() as conn:
             return conn.execute("""
                 SELECT 
@@ -228,7 +228,8 @@ class AttributeRepository:
                     a.title,
                     a.class_id,
                     a.entity_id,
-                    a.date_event,
+                    a.date_in,
+                    a.date_out,
                     ac.title as attr_name,
                     ac.data_type,
                     ac.order_display,
@@ -246,12 +247,13 @@ class AttributeRepository:
                 JOIN attribute_class ac ON a.class_id = ac.identifier
                 LEFT JOIN entity_instance te ON (ac.data_type = 'ENTITY' AND CAST(a.title AS INTEGER) = te.identifier)
                 WHERE a.entity_id = ?
-                ORDER BY COALESCE(ac.order_display, ac.identifier)
+                  AND (a.date_out IS NULL OR a.date_out > datetime('now', 'localtime'))
+                ORDER BY COALESCE(ac.order_display, ac.identifier), a.date_in DESC
             """, (entity_id,)).fetchall()
     
     @staticmethod
     def get_by_entity_id_at_date(entity_id: int, view_date: str) -> List[sqlite3.Row]:
-        """エンティティIDで属性インスタンスを取得（指定日付時点での最新値）"""
+        """エンティティIDで属性インスタンスを取得（指定日付時点で有効なもののみ）"""
         with get_connection() as conn:
             return conn.execute("""
                 SELECT 
@@ -259,7 +261,8 @@ class AttributeRepository:
                     a.title,
                     a.class_id,
                     a.entity_id,
-                    a.date_event,
+                    a.date_in,
+                    a.date_out,
                     ac.title as attr_name,
                     ac.data_type,
                     ac.order_display,
@@ -277,30 +280,24 @@ class AttributeRepository:
                 JOIN attribute_class ac ON a.class_id = ac.identifier
                 LEFT JOIN entity_instance te ON (ac.data_type = 'ENTITY' AND CAST(a.title AS INTEGER) = te.identifier)
                 WHERE a.entity_id = ?
-                  AND (a.date_event IS NULL OR a.date_event <= ?)
-                  AND a.identifier = (
-                    SELECT MAX(a2.identifier)
-                    FROM attribute_instance a2
-                    WHERE a2.entity_id = a.entity_id
-                      AND a2.class_id = a.class_id
-                      AND (a2.date_event IS NULL OR a2.date_event <= ?)
-                  )
+                  AND (a.date_in IS NULL OR a.date_in <= ?)
+                  AND (a.date_out IS NULL OR a.date_out > ?)
                 ORDER BY COALESCE(ac.order_display, ac.identifier)
             """, (entity_id, view_date, view_date)).fetchall()
     
     @staticmethod
-    def create(title: str, class_id: int, entity_id: int, date_event: str = None) -> int:
+    def create(title: str, class_id: int, entity_id: int, date_in: str = None, date_out: str = None) -> int:
         """新しい属性インスタンスを作成"""
         with get_connection() as conn:
             cursor = conn.execute("""
-                INSERT INTO attribute_instance (title, class_id, entity_id, date_event)
-                VALUES (?, ?, ?, ?)
-            """, (title, class_id, entity_id, date_event))
+                INSERT INTO attribute_instance (title, class_id, entity_id, date_in, date_out)
+                VALUES (?, ?, ?, ?, ?)
+            """, (title, class_id, entity_id, date_in, date_out))
             conn.commit()
             return cursor.lastrowid
     
     @staticmethod
-    def update(attribute_id: int, title: str = None, date_event: str = None) -> bool:
+    def update(attribute_id: int, title: str = None, date_in: str = None, date_out: str = None) -> bool:
         """属性インスタンスを更新"""
         updates = []
         params = []
@@ -308,9 +305,12 @@ class AttributeRepository:
         if title is not None:
             updates.append("title = ?")
             params.append(title)
-        if date_event is not None:
-            updates.append("date_event = ?")
-            params.append(date_event)
+        if date_in is not None:
+            updates.append("date_in = ?")
+            params.append(date_in)
+        if date_out is not None:
+            updates.append("date_out = ?")
+            params.append(date_out)
         
         if not updates:
             return False
@@ -335,6 +335,56 @@ class AttributeRepository:
             """, (attribute_id,))
             conn.commit()
             return cursor.rowcount > 0
+    
+    @staticmethod
+    def logical_delete(attribute_id: int, date_out: str = None) -> bool:
+        """属性インスタンスを論理削除（date_outを設定）"""
+        if date_out is None:
+            from datetime import datetime
+            date_out = datetime.now().strftime('%Y-%m-%d')
+        
+        return AttributeRepository.update(attribute_id, date_out=date_out)
+    
+    @staticmethod
+    def get_all_by_entity_and_class(entity_id: int, class_id: int) -> List[sqlite3.Row]:
+        """エンティティと属性クラスで属性インスタンスの全履歴を取得"""
+        with get_connection() as conn:
+            return conn.execute("""
+                SELECT 
+                    a.identifier,
+                    a.title,
+                    a.class_id,
+                    a.entity_id,
+                    a.date_in,
+                    a.date_out,
+                    ac.title as attr_name,
+                    ac.data_type
+                FROM attribute_instance a
+                JOIN attribute_class ac ON a.class_id = ac.identifier
+                WHERE a.entity_id = ? AND a.class_id = ?
+                ORDER BY a.date_in DESC
+            """, (entity_id, class_id)).fetchall()
+    
+    @staticmethod
+    def get_active_by_entity_and_class(entity_id: int, class_id: int) -> List[sqlite3.Row]:
+        """エンティティと属性クラスで現在有効な属性インスタンスを取得"""
+        with get_connection() as conn:
+            return conn.execute("""
+                SELECT 
+                    a.identifier,
+                    a.title,
+                    a.class_id,
+                    a.entity_id,
+                    a.date_in,
+                    a.date_out,
+                    ac.title as attr_name,
+                    ac.data_type
+                FROM attribute_instance a
+                JOIN attribute_class ac ON a.class_id = ac.identifier
+                WHERE a.entity_id = ? AND a.class_id = ?
+                  AND (a.date_out IS NULL OR a.date_out > datetime('now', 'localtime'))
+                ORDER BY a.date_in DESC
+            """, (entity_id, class_id)).fetchall()
 
 class AttributeMetaRepository:
     """属性クラスのデータアクセス（旧AttributeMeta）"""

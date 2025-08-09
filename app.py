@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, session, flash, request
+from flask import Flask, render_template, redirect, url_for, session, flash, request, jsonify
 from authlib.integrations.flask_client import OAuth
 import os
 from datetime import datetime, date
@@ -470,20 +470,9 @@ def instance_detail(entity_id):
         # 属性情報（指定日付時点での最新値）
         attributes = AttributeRepository.get_by_entity_id_at_date(entity_id, view_date_str)
         
-        # 属性を通常の属性とリレーションに分類
-        regular_attributes = []
-        relation_attributes = []
-        
-        for attr in attributes:
-            if attr['data_type'] == 'ENTITY':
-                relation_attributes.append(attr)
-            else:
-                regular_attributes.append(attr)
-        
         return render_template('instances/detail.html', 
                              entity=entity,
-                             attributes=regular_attributes,
-                             relations=relation_attributes,
+                             attributes=attributes,
                              view_date=view_date,
                              user=user, 
                              provider_name=PROVIDER_NAME)
@@ -579,12 +568,12 @@ def create_instance():
                     # ENTITY型の場合はエンティティIDを文字列として保存
                     try:
                         target_entity_id = int(attr_value)  # バリデーション用
-                        AttributeRepository.create(str(target_entity_id), attr_class['identifier'], entity_id)
+                        AttributeRepository.create(str(target_entity_id), attr_class['identifier'], entity_id, date_in)
                     except ValueError:
                         flash(f'属性「{attr_class["title"]}」の値が無効です。', 'warning')
                 else:
                     # 通常の属性の場合
-                    AttributeRepository.create(attr_value, attr_class['identifier'], entity_id)
+                    AttributeRepository.create(attr_value, attr_class['identifier'], entity_id, date_in)
         
         flash(f'エンティティ「{title}」を作成しました。', 'success')
         return redirect(url_for('instance_detail', entity_id=entity_id))
@@ -612,23 +601,22 @@ def edit_instance(entity_id):
             flash('エンティティが見つかりません', 'error')
             return redirect(url_for('instances_list'))
         
-        # 属性情報（指定日付時点での最新値）
-        attributes = AttributeRepository.get_by_entity_id_at_date(entity_id, view_date_str)
+        # 属性クラス一覧を取得（新しい属性インスタンス追加用）
+        attribute_classes = AttributeMetaRepository.get_by_entity_meta_id(entity['class_id'])
         
-        # 属性を通常の属性とリレーションに分類
-        regular_attributes = []
-        relation_attributes = []
-        
-        for attr in attributes:
-            if attr['data_type'] == 'ENTITY':
-                relation_attributes.append(attr)
-            else:
-                regular_attributes.append(attr)
+        # 各属性クラスごとに現在有効な属性インスタンスを取得
+        attributes_by_class = {}
+        for attr_class in attribute_classes:
+            attributes = AttributeRepository.get_active_by_entity_and_class(entity_id, attr_class['identifier'])
+            attributes_by_class[attr_class['identifier']] = {
+                'class_info': attr_class,
+                'instances': attributes
+            }
         
         return render_template('instances/edit.html', 
                              entity=entity,
-                             attributes=regular_attributes,
-                             relations=relation_attributes,
+                             attributes_by_class=attributes_by_class,
+                             attribute_classes=attribute_classes,
                              view_date=view_date,
                              user=user, 
                              provider_name=PROVIDER_NAME)
@@ -677,10 +665,83 @@ def update_instance(entity_id):
         flash('エンティティの更新中にエラーが発生しました。', 'error')
         return redirect(url_for('edit_instance', entity_id=entity_id))
 
-@app.route('/instances/<int:entity_id>/attribute/update', methods=['POST'])
+@app.route('/instances/<int:entity_id>/attribute/add', methods=['POST'])
 @require_login
-def update_attribute_value(entity_id):
-    """属性値更新"""
+def add_attribute_value(entity_id):
+    """新しい属性インスタンスを追加"""
+    try:
+        # エンティティの存在確認
+        entity = EntityRepository.get_by_id(entity_id)
+        if not entity:
+            flash('エンティティが見つかりません', 'error')
+            return redirect(url_for('instances_list'))
+        
+        attribute_class_id = request.form.get('attribute_class_id')
+        title = request.form.get('title', '').strip()
+        entity_value = request.form.get('entity_value', '').strip()
+        data_type = request.form.get('data_type', '').strip()
+        date_in = request.form.get('date_in', '').strip() or None
+        date_out = request.form.get('date_out', '').strip() or None
+        
+        if not attribute_class_id:
+            flash('属性クラスIDが指定されていません。', 'error')
+            return redirect(url_for('edit_instance', entity_id=entity_id))
+        
+        try:
+            attribute_class_id = int(attribute_class_id)
+        except ValueError:
+            flash('無効な属性クラスIDです。', 'error')
+            return redirect(url_for('edit_instance', entity_id=entity_id))
+        
+        # 属性クラスの存在確認
+        attribute_class = AttributeMetaRepository.get_by_id(attribute_class_id)
+        if not attribute_class:
+            flash('指定された属性クラスが存在しません。', 'error')
+            return redirect(url_for('edit_instance', entity_id=entity_id))
+        
+        # データ型に応じて値を決定
+        if data_type == 'ENTITY':
+            if not entity_value:
+                flash('エンティティを選択してください。', 'error')
+                return redirect(url_for('edit_instance', entity_id=entity_id))
+            
+            # エンティティIDの有効性をチェック
+            try:
+                target_entity_id = int(entity_value)
+                target_entity = EntityRepository.get_by_id(target_entity_id)
+                if not target_entity:
+                    flash('選択されたエンティティが存在しません。', 'error')
+                    return redirect(url_for('edit_instance', entity_id=entity_id))
+                final_value = str(target_entity_id)
+            except ValueError:
+                flash('無効なエンティティが選択されました。', 'error')
+                return redirect(url_for('edit_instance', entity_id=entity_id))
+        else:
+            if not title:
+                flash('属性値を入力してください。', 'error')
+                return redirect(url_for('edit_instance', entity_id=entity_id))
+            final_value = title
+        
+        # 新しい属性インスタンスを作成
+        attribute_id = AttributeRepository.create(final_value, attribute_class_id, entity_id, date_in, date_out)
+        
+        if attribute_id:
+            flash(f'属性「{attribute_class["title"]}」の新しい値を追加しました。', 'success')
+        else:
+            flash('属性値の追加に失敗しました。', 'error')
+        
+        return redirect(url_for('edit_instance', entity_id=entity_id))
+        
+    except Exception as e:
+        print(f'Error adding attribute value: {e}')
+        flash('属性値の追加中にエラーが発生しました。', 'error')
+        return redirect(url_for('edit_instance', entity_id=entity_id))
+
+
+@app.route('/instances/<int:entity_id>/attribute/edit', methods=['POST'])
+@require_login
+def edit_attribute_value(entity_id):
+    """属性インスタンスの直接編集（title, date_in, date_out）"""
     try:
         # エンティティの存在確認
         entity = EntityRepository.get_by_id(entity_id)
@@ -689,7 +750,11 @@ def update_attribute_value(entity_id):
             return redirect(url_for('instances_list'))
         
         attribute_id = request.form.get('attribute_id')
-        attribute_value = request.form.get('attribute_value', '').strip()
+        title = request.form.get('title', '').strip()
+        entity_value = request.form.get('entity_value', '').strip()
+        data_type = request.form.get('data_type', '').strip()
+        date_in = request.form.get('date_in', '').strip() or None
+        date_out = request.form.get('date_out', '').strip() or None
         
         if not attribute_id:
             flash('属性IDが指定されていません。', 'error')
@@ -701,8 +766,31 @@ def update_attribute_value(entity_id):
             flash('無効な属性IDです。', 'error')
             return redirect(url_for('edit_instance', entity_id=entity_id))
         
-        # 属性値を更新
-        success = AttributeRepository.update(attribute_id, title=attribute_value)
+        # データ型に応じて値を決定
+        if data_type == 'ENTITY':
+            if not entity_value:
+                flash('エンティティを選択してください。', 'error')
+                return redirect(url_for('edit_instance', entity_id=entity_id))
+            
+            # エンティティIDの有効性をチェック
+            try:
+                target_entity_id = int(entity_value)
+                target_entity = EntityRepository.get_by_id(target_entity_id)
+                if not target_entity:
+                    flash('選択されたエンティティが存在しません。', 'error')
+                    return redirect(url_for('edit_instance', entity_id=entity_id))
+                final_value = str(target_entity_id)
+            except ValueError:
+                flash('無効なエンティティが選択されました。', 'error')
+                return redirect(url_for('edit_instance', entity_id=entity_id))
+        else:
+            if not title:
+                flash('属性値を入力してください。', 'error')
+                return redirect(url_for('edit_instance', entity_id=entity_id))
+            final_value = title
+        
+        # 属性インスタンスを直接更新
+        success = AttributeRepository.update(attribute_id, title=final_value, date_in=date_in, date_out=date_out)
         
         if success:
             flash('属性値を更新しました。', 'success')
@@ -712,9 +800,32 @@ def update_attribute_value(entity_id):
         return redirect(url_for('edit_instance', entity_id=entity_id))
         
     except Exception as e:
-        print(f'Error updating attribute value: {e}')
+        print(f'Error editing attribute value: {e}')
         flash('属性値の更新中にエラーが発生しました。', 'error')
         return redirect(url_for('edit_instance', entity_id=entity_id))
+
+@app.route('/api/entities', methods=['GET'])
+@require_login
+def get_entities_json():
+    """全エンティティ一覧をJSONで返す（ENTITY型属性の選択用）"""
+    try:
+        # 現在有効な全エンティティを取得
+        entities = EntityRepository.get_all()
+        
+        # JSON用にデータを整形
+        entities_list = []
+        for entity in entities:
+            entities_list.append({
+                'identifier': entity['identifier'],
+                'title': entity['title'],
+                'type_name': entity['type_name']
+            })
+        
+        return jsonify(entities_list)
+        
+    except Exception as e:
+        print(f'Error getting entities JSON: {e}')
+        return jsonify([]), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='localhost', port=5000)
